@@ -13,7 +13,7 @@
     "express",
     "mongodb"
   ],
-  "author": "",
+  "author": "Ritik Bosu",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,6 +1,7 @@
 {
     "name": "scrolla-client",
     "version": "1.0.0",
+    "author": "Ritik Bosu",
     "type": "module",
     "scripts": {
         "dev": "vite",
