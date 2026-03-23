@@ -29,6 +29,11 @@ export const userService = {
     getFollowing: async (id) => {
         const response = await api.get(`/users/${id}/following`);
         return response.data;
+    },
+
+    getSuggestedUsers: async () => {
+        const response = await api.get('/users/suggested');
+        return response.data;
     }
 };
 

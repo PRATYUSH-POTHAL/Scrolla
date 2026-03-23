@@ -3,8 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import AuthPage from './pages/AuthPage';
 import Feed from './pages/Feed';
 import CreatePost from './pages/CreatePost';
 import Profile from './pages/Profile';
@@ -18,8 +17,8 @@ function App() {
                         <Navbar />
                         <Routes>
                             {/* Public Routes */}
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/register" element={<Register />} />
+                            <Route path="/login" element={<AuthPage />} />
+                            <Route path="/register" element={<AuthPage />} />
 
                             {/* Protected Routes */}
                             <Route

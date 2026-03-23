@@ -12,28 +12,24 @@ cloudinary.config({
 });
 
 // @route   GET /api/upload/signature
-// @desc    Generate signature for direct Cloudinary upload
+// @desc    Generate signature for direct Cloudinary upload (image)
 // @access  Private
 router.get('/signature', protect, (req, res) => {
     try {
         const timestamp = Math.round(new Date().getTime() / 1000);
         const folder = 'scrolla';
 
-        // Generate signature
         const signature = cloudinary.utils.api_sign_request(
-            {
-                timestamp: timestamp,
-                folder: folder
-            },
+            { timestamp, folder },
             process.env.CLOUDINARY_API_SECRET
         );
 
         res.json({
-            signature: signature,
-            timestamp: timestamp,
+            signature,
+            timestamp,
             cloudName: process.env.CLOUDINARY_CLOUD_NAME,
             apiKey: process.env.CLOUDINARY_API_KEY,
-            folder: folder
+            folder
         });
     } catch (error) {
         console.error('Signature generation error:', error);
@@ -41,22 +37,51 @@ router.get('/signature', protect, (req, res) => {
     }
 });
 
+// @route   GET /api/upload/video-signature
+// @desc    Generate signature for direct Cloudinary video upload
+// @access  Private
+router.get('/video-signature', protect, (req, res) => {
+    try {
+        const timestamp = Math.round(new Date().getTime() / 1000);
+        const folder = 'scrolla/videos';
+
+        const signature = cloudinary.utils.api_sign_request(
+            { timestamp, folder },
+            process.env.CLOUDINARY_API_SECRET
+        );
+
+        res.json({
+            signature,
+            timestamp,
+            cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+            apiKey: process.env.CLOUDINARY_API_KEY,
+            folder
+        });
+    } catch (error) {
+        console.error('Video signature generation error:', error);
+        res.status(500).json({ message: 'Error generating video upload signature' });
+    }
+});
+
 // @route   DELETE /api/upload/:publicId
-// @desc    Delete image from Cloudinary
+// @desc    Delete media from Cloudinary
 // @access  Private
 router.delete('/:publicId', protect, async (req, res) => {
     try {
+        const { type } = req.query; // 'image' or 'video'
         const publicId = `scrolla/${req.params.publicId}`;
 
-        const result = await cloudinary.uploader.destroy(publicId);
+        const result = await cloudinary.uploader.destroy(publicId, {
+            resource_type: type || 'image'
+        });
 
         res.status(200).json({
-            message: 'Image deleted successfully',
-            result: result
+            message: 'Media deleted successfully',
+            result
         });
     } catch (error) {
         console.error('Delete error:', error);
-        res.status(500).json({ message: 'Error deleting image' });
+        res.status(500).json({ message: 'Error deleting media' });
     }
 });
 

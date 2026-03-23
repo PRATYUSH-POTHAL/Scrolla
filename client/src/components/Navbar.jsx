@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, User, Baby } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -7,6 +7,19 @@ const Navbar = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { kidsMode, toggleKidsMode } = useApp();
+
+    const location = useLocation();
+
+    // Hide navbar on these routes (pages have their own nav)
+    const isHiddenRoute = 
+        location.pathname === '/login' || 
+        location.pathname === '/register' || 
+        location.pathname.startsWith('/profile') ||
+        location.pathname === '/feed' ||
+        location.pathname === '/create-post' ||
+        location.pathname.startsWith('/edit-post');
+
+    if (isHiddenRoute) return null;
 
     const handleLogout = () => {
         logout();

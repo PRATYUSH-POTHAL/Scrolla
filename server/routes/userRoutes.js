@@ -5,6 +5,36 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// @route   GET /api/users/suggested
+// @desc    Get suggested users (not followed by current user)
+// @access  Private
+router.get('/suggested', protect, async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user._id).select('following');
+        const excludeIds = [...(currentUser.following || []), req.user._id];
+
+        const users = await User.find({
+            _id: { $nin: excludeIds }
+        })
+        .select('username avatar bio followers')
+        .limit(10)
+        .sort({ createdAt: -1 });
+
+        const result = users.map(u => ({
+            _id: u._id,
+            username: u.username,
+            avatar: u.avatar,
+            bio: u.bio,
+            followerCount: u.followers?.length || 0
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('Get suggested users error:', error);
+        res.status(500).json({ message: 'Server error fetching suggested users' });
+    }
+});
+
 // @route   GET /api/users/:id
 // @desc    Get user profile by ID
 // @access  Public

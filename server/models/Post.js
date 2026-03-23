@@ -11,8 +11,20 @@ const postSchema = new mongoose.Schema({
         required: [true, 'Post content is required'],
         maxlength: [1000, 'Post cannot exceed 1000 characters']
     },
+    // Mixed type to support both old string URLs and new structured objects
     images: [{
-        type: String
+        type: mongoose.Schema.Types.Mixed
+    }],
+    videos: [{
+        url: String,
+        publicId: String,
+        trimStart: { type: Number, default: 0 },
+        trimEnd: Number,
+        duration: Number,
+        muted: { type: Boolean, default: false },
+        aspectRatio: { type: String, default: '16:9' },
+        thumbnailTime: { type: Number, default: 0 },
+        filter: { type: String, default: 'none' }
     }],
     mood: {
         type: String,
