@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import compression from 'compression';
+import helmet from 'helmet';
+import { generalLimiter } from './middleware/rateLimiter.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -17,9 +19,13 @@ dotenv.config();
 
 const app = express();
 
+// Security middleware
+app.use(helmet());
+
 // Middleware
 app.use(cors());
 app.use(compression());
+app.use(generalLimiter);
 // Reduced body size limit since Cloudinary handles files
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ limit: '5mb', extended: true }));

@@ -273,6 +273,7 @@ const Profile = () => {
                                     post={post}
                                     onUpdate={fetchUserPosts}
                                     onDelete={(id) => setPosts(posts.filter(p => p._id !== id))}
+                                    isFollowing={isFollowing}
                                 />
                             ))
                         )}

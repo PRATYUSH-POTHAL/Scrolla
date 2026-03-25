@@ -35,27 +35,7 @@ const userSchema = new mongoose.Schema({
   kidsMode: {
     type: Boolean,
     default: false
-  },
-  followers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  following: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  savedPosts: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post'
-  }],
-  hiddenPosts: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post'
-  }],
-  reportedPosts: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post'
-  }]
+  }
 }, {
   timestamps: true
 });

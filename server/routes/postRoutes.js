@@ -2,14 +2,48 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import Post from '../models/Post.js';
 import User from '../models/User.js';
+import Follow from '../models/Follow.js';
+import Like from '../models/Like.js';
+import SavedPost from '../models/SavedPost.js';
+import HiddenPost from '../models/HiddenPost.js';
+import ReportedPost from '../models/ReportedPost.js';
 import { protect } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/optionalAuth.js';
 
 const router = express.Router();
+
+// Helper to attach isLiked properly
+const attachUserInteractions = async (posts, userId) => {
+    if (!posts) return posts;
+    
+    // Normalize to array
+    const isArray = Array.isArray(posts);
+    const postsList = isArray ? posts : [posts];
+    if (postsList.length === 0) return isArray ? [] : null;
+
+    // Convert to plain objects
+    const plainPosts = postsList.map(p => p.toJSON ? p.toJSON() : p);
+
+    if (!userId) {
+        plainPosts.forEach(p => p.isLiked = false);
+        return isArray ? plainPosts : plainPosts[0];
+    }
+
+    const postIds = plainPosts.map(p => p._id);
+    const userLikes = await Like.find({ user: userId, post: { $in: postIds } });
+    const likedPostIds = new Set(userLikes.map(l => l.post.toString()));
+
+    plainPosts.forEach(p => {
+        p.isLiked = likedPostIds.has(p._id.toString());
+    });
+
+    return isArray ? plainPosts : plainPosts[0];
+};
 
 // @route   GET /api/posts
 // @desc    Get posts with filters (mood, kidSafe, following)
 // @access  Public (but auth-aware for following filter)
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
     try {
         const { mood, kidSafe, following, limit = 20, page = 1 } = req.query;
 
@@ -25,38 +59,32 @@ router.get('/', async (req, res) => {
         }
 
         // Filter by followed users only
-        if (following === 'true') {
-            // Extract token from header
-            const token = req.headers.authorization?.replace('Bearer ', '');
-            if (token) {
-                try {
-                    const jwt = await import('jsonwebtoken');
-                    const decoded = jwt.default.verify(token, process.env.JWT_SECRET);
-                    const currentUser = await User.findById(decoded.id).select('following');
-                    if (currentUser && currentUser.following.length > 0) {
-                        query.author = { $in: currentUser.following };
-                    } else {
-                        // Not following anyone → return empty
-                        return res.json({ posts: [], total: 0, page: 1, pages: 0 });
-                    }
-                } catch (err) {
-                    // Token invalid — just return all posts
-                }
+        if (following === 'true' && req.user) {
+            const followingRecords = await Follow.find({ follower: req.user._id }).select('followee');
+            const followingIds = followingRecords.map(f => f.followee);
+            
+            if (followingIds.length > 0) {
+                query.author = { $in: followingIds };
+            } else {
+                // Not following anyone → return empty
+                return res.json({ posts: [], total: 0, page: 1, pages: 0 });
             }
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const posts = await Post.find(query)
-            .populate('author', 'username avatar followers')
+            .populate('author', 'username avatar bio')
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
             .skip(skip);
 
+        const postsWithInteractions = await attachUserInteractions(posts, req.user?._id);
+
         const total = await Post.countDocuments(query);
 
         res.json({
-            posts,
+            posts: postsWithInteractions,
             total,
             page: parseInt(page),
             pages: Math.ceil(total / parseInt(limit))
@@ -70,13 +98,15 @@ router.get('/', async (req, res) => {
 // @route   GET /api/posts/user/:userId
 // @desc    Get posts by a specific user
 // @access  Public
-router.get('/user/:userId', async (req, res) => {
+router.get('/user/:userId', optionalAuth, async (req, res) => {
     try {
         const posts = await Post.find({ author: req.params.userId })
-            .populate('author', 'username avatar followers')
+            .populate('author', 'username avatar bio')
             .sort({ createdAt: -1 });
 
-        res.json(posts);
+        const postsWithInteractions = await attachUserInteractions(posts, req.user?._id);
+
+        res.json(postsWithInteractions);
     } catch (error) {
         console.error('Get user posts error:', error);
         res.status(500).json({ message: 'Server error fetching user posts' });
@@ -86,7 +116,7 @@ router.get('/user/:userId', async (req, res) => {
 // @route   GET /api/posts/:id
 // @desc    Get single post by ID
 // @access  Public
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
     try {
         const post = await Post.findById(req.params.id)
             .populate('author', 'username avatar bio')
@@ -99,7 +129,9 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        res.json(post);
+        const postWithInteractions = await attachUserInteractions(post, req.user?._id);
+
+        res.json(postWithInteractions);
     } catch (error) {
         console.error('Get post error:', error);
         res.status(500).json({ message: 'Server error fetching post' });
@@ -130,7 +162,7 @@ router.post('/', protect, [
             images: images || [],
             videos: videos || [],
             mood,
-            hashtags: hashtags || [],
+            hashtags: (hashtags || []).map(tag => tag.toLowerCase().trim()),
             kidSafe: kidSafe || false
         });
 
@@ -174,7 +206,7 @@ router.put('/:id', protect, [
 
         if (content !== undefined) post.content = content;
         if (mood) post.mood = mood;
-        if (hashtags) post.hashtags = hashtags;
+        if (hashtags) post.hashtags = hashtags.map(tag => tag.toLowerCase().trim());
         if (images) post.images = images;
         if (videos) post.videos = videos;
         if (kidSafe !== undefined) post.kidSafe = kidSafe;
@@ -207,8 +239,7 @@ router.delete('/:id', protect, async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to delete this post' });
         }
 
-        // Helper: extract Cloudinary public_id from URL
-        // URL: https://res.cloudinary.com/cloud/{type}/upload/v123/scrolla/filename.ext
+        // Helper: extract Cloudinary public_id from URL (fallback for legacy data)
         const extractPublicId = (url) => {
             try {
                 const parts = url.split('/upload/');
@@ -232,14 +263,14 @@ router.delete('/:id', protect, async (req, res) => {
         // Delete images from Cloudinary
         if (post.images && post.images.length > 0) {
             for (const image of post.images) {
-                const url = typeof image === 'object' ? image.url : image;
-                const publicId = extractPublicId(url);
-                if (publicId) {
+                // Use stored publicId if available, otherwise extract from URL
+                const pid = image.publicId || extractPublicId(image.url);
+                if (pid) {
                     try {
-                        await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
-                        console.log('Deleted image from Cloudinary:', publicId);
+                        await cloudinary.uploader.destroy(pid, { resource_type: 'image' });
+                        console.log('Deleted image from Cloudinary:', pid);
                     } catch (err) {
-                        console.error('Failed to delete image ' + publicId + ':', err.message);
+                        console.error('Failed to delete image ' + pid + ':', err.message);
                     }
                 }
             }
@@ -248,13 +279,13 @@ router.delete('/:id', protect, async (req, res) => {
         // Delete videos from Cloudinary
         if (post.videos && post.videos.length > 0) {
             for (const video of post.videos) {
-                const publicId = extractPublicId(video.url);
-                if (publicId) {
+                const pid = video.publicId || extractPublicId(video.url);
+                if (pid) {
                     try {
-                        await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
-                        console.log('Deleted video from Cloudinary:', publicId);
+                        await cloudinary.uploader.destroy(pid, { resource_type: 'video' });
+                        console.log('Deleted video from Cloudinary:', pid);
                     } catch (err) {
-                        console.error('Failed to delete video ' + publicId + ':', err.message);
+                        console.error('Failed to delete video ' + pid + ':', err.message);
                     }
                 }
             }
@@ -281,18 +312,24 @@ router.post('/:id/like', protect, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        const likeIndex = post.likes.indexOf(req.user._id);
+        const existingLike = await Like.findOne({
+            user: req.user._id,
+            post: req.params.id
+        });
 
-        if (likeIndex > -1) {
+        if (existingLike) {
             // Unlike
-            post.likes.splice(likeIndex, 1);
-            post.likeCount = post.likes.length;
+            await existingLike.deleteOne();
+            post.likeCount = Math.max(0, post.likeCount - 1);
             await post.save();
             res.json({ message: 'Post unliked', liked: false, likeCount: post.likeCount });
         } else {
             // Like
-            post.likes.push(req.user._id);
-            post.likeCount = post.likes.length;
+            await Like.create({
+                user: req.user._id,
+                post: req.params.id
+            });
+            post.likeCount += 1;
             await post.save();
             res.json({ message: 'Post liked', liked: true, likeCount: post.likeCount });
         }
@@ -314,17 +351,21 @@ router.post('/:id/save', protect, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        const saveIndex = user.savedPosts.indexOf(req.params.id);
+        const existingSave = await SavedPost.findOne({
+            user: req.user._id,
+            post: req.params.id
+        });
 
-        if (saveIndex > -1) {
+        if (existingSave) {
             // Unsave
-            user.savedPosts.splice(saveIndex, 1);
-            await user.save();
+            await existingSave.deleteOne();
             res.json({ message: 'Post unsaved', saved: false });
         } else {
             // Save
-            user.savedPosts.push(req.params.id);
-            await user.save();
+            await SavedPost.create({
+                user: req.user._id,
+                post: req.params.id
+            });
             res.json({ message: 'Post saved', saved: true });
         }
     } catch (error) {
@@ -345,9 +386,16 @@ router.post('/:id/hide', protect, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        if (!user.hiddenPosts.includes(req.params.id)) {
-            user.hiddenPosts.push(req.params.id);
-            await user.save();
+        const existingHide = await HiddenPost.findOne({
+            user: req.user._id,
+            post: req.params.id
+        });
+
+        if (!existingHide) {
+            await HiddenPost.create({
+                user: req.user._id,
+                post: req.params.id
+            });
         }
 
         res.json({ message: 'Post hidden' });
@@ -369,9 +417,16 @@ router.post('/:id/report', protect, async (req, res) => {
             return res.status(404).json({ message: 'Post not found' });
         }
 
-        if (!user.reportedPosts.includes(req.params.id)) {
-            user.reportedPosts.push(req.params.id);
-            await user.save();
+        const existingReport = await ReportedPost.findOne({
+            user: req.user._id,
+            post: req.params.id
+        });
+
+        if (!existingReport) {
+            await ReportedPost.create({
+                user: req.user._id,
+                post: req.params.id
+            });
         }
 
         res.json({ message: 'Post reported' });

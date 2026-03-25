@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
+import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthPage from './pages/AuthPage';
@@ -14,6 +15,7 @@ function App() {
             <AppProvider>
                 <Router>
                     <div className="min-h-screen">
+                        <Toaster position="top-right" />
                         <Navbar />
                         <Routes>
                             {/* Public Routes */}

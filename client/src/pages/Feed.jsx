@@ -339,11 +339,12 @@ const Feed = () => {
                             </div>
                         ) : (
                             posts.map((post) => (
-                                <PostCard
-                                    key={post._id}
-                                    post={post}
-                                    onUpdate={fetchPosts}
-                                    onDelete={(id) => setPosts(posts.filter(p => p._id !== id))}
+                                <PostCard 
+                                    key={post._id} 
+                                    post={post} 
+                                    onUpdate={fetchPosts} 
+                                    onDelete={fetchPosts} 
+                                    isFollowing={followingIds.has(post.author?._id)}
                                 />
                             ))
                         )}

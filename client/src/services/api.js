@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const api = axios.create({
     baseURL: 'http://localhost:5000/api',
@@ -29,6 +30,13 @@ api.interceptors.response.use(
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
+            toast.error('Session expired. Please log in again.');
+        } else if (error.response?.data?.message) {
+            toast.error(error.response.data.message);
+        } else if (error.response?.data?.errors?.length > 0) {
+            toast.error(error.response.data.errors[0].msg || 'Validation error');
+        } else {
+            toast.error('Something went wrong. Please try again.');
         }
         return Promise.reject(error);
     }

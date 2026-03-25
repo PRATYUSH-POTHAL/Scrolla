@@ -11,9 +11,12 @@ const postSchema = new mongoose.Schema({
         required: [true, 'Post content is required'],
         maxlength: [1000, 'Post cannot exceed 1000 characters']
     },
-    // Mixed type to support both old string URLs and new structured objects
+    // Structured image schema (replaces old Mixed type)
     images: [{
-        type: mongoose.Schema.Types.Mixed
+        url: { type: String, required: true },
+        publicId: String,
+        filter: { type: String, default: 'none' },
+        aspectRatio: { type: String, default: 'original' }
     }],
     videos: [{
         url: String,
@@ -33,16 +36,13 @@ const postSchema = new mongoose.Schema({
     },
     hashtags: [{
         type: String,
-        trim: true
+        trim: true,
+        lowercase: true
     }],
     kidSafe: {
         type: Boolean,
         default: false
     },
-    likes: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }],
     likeCount: {
         type: Number,
         default: 0
@@ -63,7 +63,9 @@ const postSchema = new mongoose.Schema({
 postSchema.index({ mood: 1, kidSafe: 1 });
 postSchema.index({ hashtags: 1 });
 postSchema.index({ createdAt: -1 });
+postSchema.index({ author: 1, createdAt: -1 }); // Profile posts query
 
 const Post = mongoose.model('Post', postSchema);
 
 export default Post;
+

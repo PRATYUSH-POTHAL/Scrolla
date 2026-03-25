@@ -1,7 +1,9 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
+import Follow from '../models/Follow.js';
 import { protect } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/optionalAuth.js';
 
 const router = express.Router();
 
@@ -10,22 +12,27 @@ const router = express.Router();
 // @access  Private
 router.get('/suggested', protect, async (req, res) => {
     try {
-        const currentUser = await User.findById(req.user._id).select('following');
-        const excludeIds = [...(currentUser.following || []), req.user._id];
+        // Find users the current user is already following
+        const followingRecords = await Follow.find({ follower: req.user._id }).select('followee');
+        const followingIds = followingRecords.map(f => f.followee.toString());
+        
+        const excludeIds = [...followingIds, req.user._id.toString()];
 
         const users = await User.find({
             _id: { $nin: excludeIds }
         })
-        .select('username avatar bio followers')
+        .select('username avatar bio')
         .limit(10)
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
-        const result = users.map(u => ({
-            _id: u._id,
-            username: u.username,
-            avatar: u.avatar,
-            bio: u.bio,
-            followerCount: u.followers?.length || 0
+        // Get follower count for each suggested user
+        const result = await Promise.all(users.map(async (u) => {
+            const followerCount = await Follow.countDocuments({ followee: u._id });
+            return {
+                ...u,
+                followerCount
+            };
         }));
 
         res.json(result);
@@ -38,21 +45,26 @@ router.get('/suggested', protect, async (req, res) => {
 // @route   GET /api/users/:id
 // @desc    Get user profile by ID
 // @access  Public
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
     try {
         const user = await User.findById(req.params.id)
-            .select('-password -savedPosts -hiddenPosts -reportedPosts')
-            .populate('followers', 'username avatar')
-            .populate('following', 'username avatar');
+            .select('-password -savedPosts -hiddenPosts -reportedPosts');
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        const [followerCount, followingCount, isFollowingRecord] = await Promise.all([
+            Follow.countDocuments({ followee: user._id }),
+            Follow.countDocuments({ follower: user._id }),
+            req.user ? Follow.exists({ follower: req.user._id, followee: user._id }) : Promise.resolve(null)
+        ]);
+
         res.json({
             ...user.toJSON(),
-            followerCount: user.followers.length,
-            followingCount: user.following.length
+            followerCount,
+            followingCount,
+            isFollowing: !!isFollowingRecord
         });
     } catch (error) {
         console.error('Get user error:', error);
@@ -105,7 +117,6 @@ router.put('/:id', protect, [
 router.post('/:id/follow', protect, async (req, res) => {
     try {
         const userToFollow = await User.findById(req.params.id);
-        const currentUser = await User.findById(req.user._id);
 
         if (!userToFollow) {
             return res.status(404).json({ message: 'User not found' });
@@ -117,16 +128,20 @@ router.post('/:id/follow', protect, async (req, res) => {
         }
 
         // Check if already following
-        if (currentUser.following.includes(req.params.id)) {
+        const existingFollow = await Follow.findOne({
+            follower: req.user._id,
+            followee: req.params.id
+        });
+
+        if (existingFollow) {
             return res.status(400).json({ message: 'Already following this user' });
         }
 
-        // Add to following and followers
-        currentUser.following.push(req.params.id);
-        userToFollow.followers.push(req.user._id);
-
-        await currentUser.save();
-        await userToFollow.save();
+        // Create follow record
+        await Follow.create({
+            follower: req.user._id,
+            followee: req.params.id
+        });
 
         res.json({ message: 'Successfully followed user' });
     } catch (error) {
@@ -140,28 +155,14 @@ router.post('/:id/follow', protect, async (req, res) => {
 // @access  Private
 router.delete('/:id/follow', protect, async (req, res) => {
     try {
-        const userToUnfollow = await User.findById(req.params.id);
-        const currentUser = await User.findById(req.user._id);
+        const deletedFollow = await Follow.findOneAndDelete({
+            follower: req.user._id,
+            followee: req.params.id
+        });
 
-        if (!userToUnfollow) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Check if following
-        if (!currentUser.following.includes(req.params.id)) {
+        if (!deletedFollow) {
             return res.status(400).json({ message: 'Not following this user' });
         }
-
-        // Remove from following and followers
-        currentUser.following = currentUser.following.filter(
-            id => id.toString() !== req.params.id
-        );
-        userToUnfollow.followers = userToUnfollow.followers.filter(
-            id => id.toString() !== req.user._id.toString()
-        );
-
-        await currentUser.save();
-        await userToUnfollow.save();
 
         res.json({ message: 'Successfully unfollowed user' });
     } catch (error) {
@@ -175,14 +176,11 @@ router.delete('/:id/follow', protect, async (req, res) => {
 // @access  Public
 router.get('/:id/followers', async (req, res) => {
     try {
-        const user = await User.findById(req.params.id)
-            .populate('followers', 'username avatar bio');
+        const followers = await Follow.find({ followee: req.params.id })
+            .populate('follower', 'username avatar bio')
+            .sort({ createdAt: -1 });
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.json(user.followers);
+        res.json(followers.map(f => f.follower).filter(Boolean));
     } catch (error) {
         console.error('Get followers error:', error);
         res.status(500).json({ message: 'Server error fetching followers' });
@@ -194,14 +192,11 @@ router.get('/:id/followers', async (req, res) => {
 // @access  Public
 router.get('/:id/following', async (req, res) => {
     try {
-        const user = await User.findById(req.params.id)
-            .populate('following', 'username avatar bio');
+        const following = await Follow.find({ follower: req.params.id })
+            .populate('followee', 'username avatar bio')
+            .sort({ createdAt: -1 });
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.json(user.following);
+        res.json(following.map(f => f.followee).filter(Boolean));
     } catch (error) {
         console.error('Get following error:', error);
         res.status(500).json({ message: 'Server error fetching following' });

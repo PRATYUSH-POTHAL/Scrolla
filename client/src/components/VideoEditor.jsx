@@ -180,7 +180,7 @@ const VideoEditor = ({ file, onSave, onCancel }) => {
                         onTimeUpdate={handleTimeUpdate}
                         onEnded={() => setIsPlaying(false)}
                         muted={muted}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                         style={{ filter: getCssFilter() !== 'none' ? getCssFilter() : undefined }}
                     />
                 </div>

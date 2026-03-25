@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 // @desc    Register new user
 // @access  Public
-router.post('/register', [
+router.post('/register', authLimiter, [
     body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
     body('email').isEmail().normalizeEmail().withMessage('Invalid email address'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
@@ -62,7 +63,7 @@ router.post('/register', [
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', [
+router.post('/login', authLimiter, [
     body('email').isEmail().normalizeEmail().withMessage('Invalid email address'),
     body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {

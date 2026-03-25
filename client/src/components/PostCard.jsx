@@ -10,6 +10,9 @@ import { postService } from '../services/postService';
 import { userService } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useFollow } from '../hooks/useFollow';
+import { useLike } from '../hooks/useLike';
+import { usePostActions } from '../hooks/usePostActions';
 
 // Cloudinary filter map
 const CLOUDINARY_FILTERS = {
@@ -97,7 +100,7 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel }) => {
     };
 
     return (
-        <div ref={containerRef} className="relative rounded-lg overflow-hidden" style={{ width: '100%', background: '#000' }}>
+        <div ref={containerRef} className="relative rounded-lg overflow-hidden" style={{ width: '100%', aspectRatio: aspectMap[aspectRatio] || '16/9', maxHeight: '520px', background: '#000' }}>
             <video
                 ref={videoRef}
                 src={src}
@@ -108,11 +111,9 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel }) => {
                 preload="metadata"
                 disablePictureInPicture
                 controlsList="nodownload nofullscreen noremoteplayback"
-                className="w-full rounded-lg"
+                className="w-full h-full rounded-lg"
                 style={{
-                    aspectRatio: aspectMap[aspectRatio] || '16/9',
                     objectFit: 'contain',
-                    maxHeight: '520px',
                     display: 'block',
                     background: '#000',
                 }}
@@ -138,111 +139,28 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel }) => {
     );
 };
 
-const PostCard = ({ post, onUpdate, onDelete }) => {
+const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [liked, setLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(post.likeCount || 0);
+    
     const [showComments, setShowComments] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(false);
-    const [followLoading, setFollowLoading] = useState(false);
 
-    const shareUrl = `${window.location.origin}/posts/${post._id}`;
-    const isOwnPost = user?._id === post.author?._id;
+    const { isFollowing, toggleFollow: handleFollow, loading: followLoading } = useFollow(isFollowingProp, post?.author?._id);
+    const { liked, likeCount, toggleLike: handleLike } = useLike(post?.isLiked, post?.likeCount, post?._id);
+    const { handleSave, handleHide, handleReport, handleDelete } = usePostActions(post?._id, onUpdate, onDelete);
 
-    if (!post.author) {
+    const shareUrl = `${window.location.origin}/posts/${post?._id}`;
+    const isOwnPost = user?._id === post?.author?._id;
+
+    if (!post?.author) {
         console.error('Post author is null:', post);
         return null;
     }
 
-    useEffect(() => {
-        setLiked(post.likes?.includes(user?._id));
-    }, [post.likes, user?._id]);
-
-    // Check if current user follows this author
-    useEffect(() => {
-        if (post.author?.followers && user?._id) {
-            const following = post.author.followers.some(f => {
-                const fId = typeof f === 'object' ? (f._id || f) : f;
-                return fId?.toString() === user._id?.toString();
-            });
-            setIsFollowing(following);
-        }
-    }, [post.author, user?._id]);
-
-    const handleFollow = async (e) => {
-        e.stopPropagation();
-        if (followLoading) return;
-        setFollowLoading(true);
-        try {
-            if (isFollowing) {
-                await userService.unfollowUser(post.author._id);
-                setIsFollowing(false);
-            } else {
-                await userService.followUser(post.author._id);
-                setIsFollowing(true);
-            }
-        } catch (err) {
-            console.error('Follow/unfollow error:', err);
-        } finally {
-            setFollowLoading(false);
-        }
-    };
-
-    const handleLike = async () => {
-        try {
-            const response = await postService.likePost(post._id);
-            setLiked(response.liked);
-            setLikeCount(response.likeCount);
-        } catch (error) {
-            console.error('Error liking post:', error);
-        }
-    };
-
-    const handleSave = async () => {
-        try {
-            await postService.savePost(post._id);
-            alert('Post saved!');
-        } catch (error) {
-            console.error('Error saving post:', error);
-        }
-    };
-
-    const handleHide = async () => {
-        try {
-            await postService.hidePost(post._id);
-            alert('Post hidden!');
-            if (onUpdate) onUpdate();
-        } catch (error) {
-            console.error('Error hiding post:', error);
-        }
-    };
-
-    const handleReport = async () => {
-        try {
-            await postService.reportPost(post._id);
-            alert('Post reported. Thank you for helping keep Scrolla safe!');
-        } catch (error) {
-            console.error('Error reporting post:', error);
-        }
-    };
-
     const handleEdit = () => {
         navigate(`/edit-post/${post._id}`, { state: { post } });
-    };
-
-    const handleDelete = async () => {
-        if (window.confirm('Are you sure you want to delete this post?')) {
-            try {
-                await postService.deletePost(post._id);
-                alert('Post deleted!');
-                if (onDelete) onDelete(post._id);
-            } catch (error) {
-                console.error('Error deleting post:', error);
-            }
-        }
     };
 
     // ─── Render image ───
@@ -254,22 +172,27 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
         const cssFilter = CSS_FILTERS[filter] || 'none';
         const aspectMap = { 'original': undefined, '1:1': '1/1', '16:9': '16/9', '4:3': '4/3', '9:16': '9/16' };
 
+        const hasCustomRatio = aspectRatio !== 'original';
+
         return (
-            <img
-                key={index}
-                src={url}
-                alt={`Post image ${index + 1}`}
-                className="w-full rounded-lg"
-                loading="lazy"
-                style={{
-                    filter: cssFilter !== 'none' ? cssFilter : undefined,
-                    aspectRatio: aspectMap[aspectRatio],
-                    objectFit: aspectRatio !== 'original' ? 'contain' : undefined,
-                    maxHeight: '520px',
-                    background: aspectRatio !== 'original' ? '#000' : undefined,
-                }}
-                onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found'; }}
-            />
+            <div key={index} className="flex justify-center rounded-lg overflow-hidden" style={{ background: hasCustomRatio ? '#000' : undefined }}>
+                <img
+                    src={url}
+                    alt={`Post image ${index + 1}`}
+                    className="rounded-lg"
+                    loading="lazy"
+                    style={{
+                        filter: cssFilter !== 'none' ? cssFilter : undefined,
+                        aspectRatio: aspectMap[aspectRatio],
+                        objectFit: hasCustomRatio ? 'contain' : 'cover',
+                        maxWidth: '100%',
+                        maxHeight: '480px',
+                        width: hasCustomRatio ? '100%' : undefined,
+                        display: 'block',
+                    }}
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found'; }}
+                />
+            </div>
         );
     };
 
@@ -280,7 +203,7 @@ const PostCard = ({ post, onUpdate, onDelete }) => {
         if (video.trimEnd && video.trimEnd < video.duration) transforms.push(`eo_${video.trimEnd}`);
         if (video.muted) transforms.push('ac_none');
         if (video.aspectRatio && video.aspectRatio !== 'original') {
-            transforms.push(`ar_${video.aspectRatio},c_fill`);
+            transforms.push(`ar_${video.aspectRatio},c_pad,b_black`);
         }
         if (video.filter && video.filter !== 'none') {
             const cloudFilter = CLOUDINARY_FILTERS[video.filter];
