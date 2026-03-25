@@ -33,9 +33,12 @@
 
 ### Backend (Server)
 - Node.js with Express 5
--  with Mongoose ODM
+- MongoDB with Mongoose ODM
 - JWT authentication
 - bcryptjs for password hashing
+- Cloudinary for media storage (images & videos)
+- Helmet for HTTP security headers
+- express-rate-limit for API abuse prevention
 - CORS enabled for API access
 - Compression middleware for performance
 
@@ -77,12 +80,17 @@
    JWT_SECRET=your_secret_key_here
    PORT=5000
    NODE_ENV=development
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
    ```
 
    > **Note**: For MongoDB Atlas, replace `MONGODB_URI` with your connection string:
    > ```
    > MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/scrolla
    > ```
+   
+   > **Cloudinary**: Sign up at [cloudinary.com](https://cloudinary.com) and copy your credentials from the Dashboard.
 
 ### Running the Application
 
@@ -224,82 +232,3 @@ This project is licensed under the MIT License.
 ---
 
 **Built with ❤️ for mindful social media consumption**
-
-
-
-
-
-
-
-
-
-
-
-# Image and Video Storing using Multi Data Form
-
-This document outlines the plan to integrate Cloudinary for storage and implement multipart/form-data handling for both images and videos.
-
-## 1. Cloudinary Setup & Configuration
-
-### **Backend Dependencies**
-- Install `cloudinary` (v2) and `multer-storage-cloudinary` packages.
-- Ensure `multer` is already installed (reuses existing installation).
-- Add environment variables to [.env](file:///d:/Capstone/Scrolla/server/.env):
-  - `CLOUDINARY_CLOUD_NAME`
-  - `CLOUDINARY_API_KEY`
-  - `CLOUDINARY_API_SECRET`
-
-### **Configuration File (`config/cloudinary.js`)**
-- Create a configuration file to initialize the Cloudinary SDK with environment variables.
-- Configure `CloudinaryStorage` for Multer:
-  - Define folder structure (e.g., `scrolla/posts`).
-  - Set allowed formats: `jpg`, `png`, `jpeg`, `mp4`, [mov](file:///d:/Capstone/Scrolla/client/src/components/FileUpload.jsx#57-62).
-  - Configure resource types to handle both `image` and `video`.
-
-## 2. Backend Implementation (Express)
-
-### **Update Upload Routes ([routes/uploadRoutes.js](file:///d:/Capstone/Scrolla/server/routes/uploadRoutes.js))**
-- Modify the existing upload route to use the Cloudinary storage engine instead of disk storage.
-- Create a middleware using Multer to handle `multipart/form-data`.
-- Configure the route to accept fields:
-  - `files`: Array of files (mixed images and videos).
-- In the controller:
-  - Iterate through uploaded files.
-  - Return the secure Cloudinary URLs (`path` or `secure_url`) and public IDs.
-  - Handle errors from Cloudinary/Multer gracefully.
-
-### **Update Post Model ([models/Post.js](file:///d:/Capstone/Scrolla/server/models/Post.js))**
-- Update the `images` validation/schema if necessary.
-- Add support for video URLs if not implicitly handled by the string array (or change to an object array to store type). *Decision: Keep as string array for URLs, but ensure frontend can render video tags based on file extension.*
-
-## 3. Frontend Implementation (React)
-
-### **Update Upload Service ([services/uploadService.js](file:///d:/Capstone/Scrolla/client/src/services/uploadService.js))**
-- Ensure the service sends data as `FormData`.
-- Append files to the form data with a consistent field name (e.g., `files`).
-- No changes needed to the content-type header (axios sets `multipart/form-data` automatically with FormData).
-
-### **Update File Upload Component ([components/FileUpload.jsx](file:///d:/Capstone/Scrolla/client/src/components/FileUpload.jsx))**
-- Update file input `accept` attribute to allow video files (`image/*,video/*`).
-- Update the preview logic:
-  - Check file type.
-  - Render `<img>` tag for images.
-  - Render `<video>` tag with controls for video files.
-- Update validation:
-  - Increase/Adjust file size limit for videos (e.g., 50MB for video, 5MB for image).
-  - Check correct MIME types.
-
-### **Update Post Card Component ([components/PostCard.jsx](file:///d:/Capstone/Scrolla/client/src/components/PostCard.jsx))**
-- Update media rendering logic:
-  - Iterate through media URLs.
-  - Use file extension or metadata to determine if it's an image or video *OR* store media type in DB.
-  - Render appropriate HTML element (`img` or `video`).
-
-## 4. Migration Strategy
-- Since the database was just reset/migrated, we will start fresh with Cloudinary URLs.
-- Existing local file uploads in `uploads/` folder will remain on disk but won't be accessible if we switch the static serving logic or if new posts use full Cloudinary URLs. *New posts will use Cloudinary.*
-
-## 5. Security & Optimization
-- Use Cloudinary transformations for optimized delivery (auto format, quality).
-- Generate thumbnails for videos if needed (Cloudinary does this automatically with specific URL flags).
-

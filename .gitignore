@@ -31,3 +31,7 @@ Thumbs.db
 # Logs
 logs
 *.log
+
+# Internal docs
+CLOUDINARY_SETUP.md
+MONGODB_FIX.md
