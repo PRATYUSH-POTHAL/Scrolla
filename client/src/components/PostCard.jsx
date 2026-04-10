@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFollow } from '../hooks/useFollow';
 import { useLike } from '../hooks/useLike';
 import { usePostActions } from '../hooks/usePostActions';
+import { getAspectRatio } from '../utils/aspectRatioHelper';
 
 // Cloudinary filter map
 const CLOUDINARY_FILTERS = {
@@ -130,7 +131,7 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel, trimStart = 0, t
     };
 
     return (
-        <div ref={containerRef} className="relative rounded-lg overflow-hidden" style={{ width: '100%', aspectRatio: aspectMap[aspectRatio] || '16/9', maxHeight: '520px', background: '#000' }}>
+            <div ref={containerRef} className="relative rounded-lg overflow-hidden" style={{ width: '100%', aspectRatio: aspectMap[aspectRatio] || '16/9', background: '#000' }}>
             <video
                 ref={videoRef}
                 src={src}
@@ -143,9 +144,11 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel, trimStart = 0, t
                 controlsList="nodownload nofullscreen noremoteplayback"
                 className="w-full h-full rounded-lg"
                 style={{
-                    objectFit: 'contain',
+                    objectFit: 'cover',
                     display: 'block',
                     background: '#000',
+                    width: '100%',
+                    height: '100%'
                 }}
             />
             <button
@@ -199,34 +202,40 @@ const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp }) =>
         navigate(`/edit-post/${post._id}`, { state: { post } });
     };
 
-    // ─── Render image ───
+    // ─── Render image with Instagram standard aspect ratio ───
     const renderImage = (image, index) => {
         const isStructured = typeof image === 'object' && image !== null;
         const url = isStructured ? image.url : image;
         const filter = isStructured ? image.filter : 'none';
-        const aspectRatio = isStructured ? image.aspectRatio : 'original';
+        const width = isStructured ? image.width : null;
+        const height = isStructured ? image.height : null;
         const cssFilter = CSS_FILTERS[filter] || 'none';
-        const aspectMap = { 'original': undefined, '1:1': '1/1', '16:9': '16/9', '4:3': '4/3', '9:16': '9/16' };
-
-        const hasCustomRatio = aspectRatio !== 'original';
+        
+        // Smart aspect ratio: use auto-detected or fallback to 4:5 (portrait)
+        const smartRatio = getAspectRatio(width, height);
+        const ratioMap = { '4/5': '4/5', '1/1': '1/1', '1.91/1': '1.91/1' };
 
         return (
-            <div key={index} className="flex justify-center rounded-lg overflow-hidden" style={{ background: hasCustomRatio ? '#000' : undefined }}>
+            <div key={index} className="post-image-wrapper">
                 <img
                     src={url}
                     alt={`Post image ${index + 1}`}
-                    className="rounded-lg"
+                    className="post-img-blurred"
                     loading="lazy"
                     style={{
+                        width: "100%",
+                        aspectRatio: ratioMap[smartRatio] || smartRatio,
+                        objectFit: "cover",
+                        borderRadius: "12px",
                         filter: cssFilter !== 'none' ? cssFilter : undefined,
-                        aspectRatio: aspectMap[aspectRatio],
-                        objectFit: hasCustomRatio ? 'contain' : 'cover',
-                        maxWidth: '100%',
-                        maxHeight: '480px',
-                        width: hasCustomRatio ? '100%' : undefined,
-                        display: 'block',
+                        backgroundColor: '#000',
+                        maxHeight: 'none', // REMOVED max-height limit
+                        display: 'block'
                     }}
                     onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found'; }}
+                    onLoad={(e) => {
+                        e.target.classList.add('loaded');
+                    }}
                 />
             </div>
         );
@@ -357,7 +366,7 @@ const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp }) =>
 
             {/* Images */}
             {post.images && post.images.length > 0 && (
-                <div className={`grid gap-2 mb-4 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <div className="mb-4 space-y-3">
                     {post.images.map((image, index) => renderImage(image, index))}
                 </div>
             )}
