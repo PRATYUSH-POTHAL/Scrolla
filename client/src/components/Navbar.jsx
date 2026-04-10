@@ -18,7 +18,8 @@ const Navbar = () => {
         location.pathname.startsWith('/profile') ||
         location.pathname === '/feed' ||
         location.pathname === '/create-post' ||
-        location.pathname.startsWith('/edit-post');
+        location.pathname.startsWith('/edit-post') ||
+        location.pathname.startsWith('/journeys');
 
     if (isHiddenRoute) return null;
 

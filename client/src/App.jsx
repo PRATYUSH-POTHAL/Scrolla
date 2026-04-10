@@ -37,6 +37,22 @@ function App() {
                                 }
                             />
                             <Route
+                                path="/explore"
+                                element={
+                                    <ProtectedRoute>
+                                        <Feed />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/saved"
+                                element={
+                                    <ProtectedRoute>
+                                        <Feed />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
                                 path="/create-post"
                                 element={
                                     <ProtectedRoute>
@@ -79,6 +95,8 @@ function App() {
                             />
 
                             {/* Default Redirect */}
+                            <Route path="/explore" element={<Navigate to="/feed" replace />} />
+                            <Route path="/saved" element={<Navigate to="/feed" replace />} />
                             <Route path="/" element={<Navigate to="/feed" replace />} />
                             <Route path="*" element={<Navigate to="/feed" replace />} />
                         </Routes>

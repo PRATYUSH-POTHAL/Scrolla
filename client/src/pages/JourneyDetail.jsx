@@ -115,11 +115,13 @@ function MembersPanel({ journeyId, memberCount }) {
                 <div className="jdetail-members-list">
                     {members.map(m => (
                         <div key={m._id} className="jdetail-member-row">
-                            {m.user?.avatar
-                                ? <img src={m.user.avatar} alt="" className="jdetail-member-avatar" />
-                                : <div className="jdetail-member-avatar placeholder">{m.user?.username?.[0]?.toUpperCase()}</div>
-                            }
-                            <span className="jdetail-member-name">@{m.user?.username}</span>
+                            <Link to={`/profile/${m.user?._id}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', flex: 1 }}>
+                                {m.user?.avatar
+                                    ? <img src={m.user.avatar} alt="" className="jdetail-member-avatar" />
+                                    : <div className="jdetail-member-avatar placeholder">{m.user?.username?.[0]?.toUpperCase()}</div>
+                                }
+                                <span className="jdetail-member-name">@{m.user?.username}</span>
+                            </Link>
                             {m.role === 'creator' && <span className="jdetail-creator-badge">Creator</span>}
                         </div>
                     ))}
