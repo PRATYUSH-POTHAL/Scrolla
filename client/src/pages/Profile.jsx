@@ -43,9 +43,6 @@ const Profile = () => {
     useEffect(() => {
         fetchProfile();
         fetchUserPosts();
-        // Reset journey history when profile changes
-        setJourneyHistory([]);
-        setJourneyHistoryLoaded(false);
     }, [id]);
 
     // Keyboard navigation for modal
