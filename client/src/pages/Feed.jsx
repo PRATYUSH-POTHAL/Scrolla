@@ -32,6 +32,7 @@ const Feed = () => {
         sessionActive,
         sessionDuration,
         sessionJourneyName,
+        sessionStartTime,
         showTimeUpModal,
         startSession,
         endSession,
