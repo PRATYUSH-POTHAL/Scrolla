@@ -24,7 +24,18 @@ const app = express();
 app.use(helmet());
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: function(origin, callback) {
+        const allowedOrigins = [process.env.CLIENT_URL, 'http://localhost:5173'];
+        // Allow requests with no origin (like mobile apps, curl, or same-origin)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
 app.use(compression());
 app.use(generalLimiter);
 // Reduced body size limit since Cloudinary handles files
