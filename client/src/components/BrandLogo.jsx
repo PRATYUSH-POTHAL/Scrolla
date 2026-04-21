@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext';
 import logoDark from '../assets/scrolla-logo-dark.png';
 import logoWhite from '../assets/scrolla-logo-white.png';
 
-const BrandLogo = ({ size = 'md' }) => {
+const BrandLogo = ({ size = 'md', forceDark = false }) => {
   const { theme } = useTheme();
 
   const sizeClasses = {
@@ -17,8 +17,8 @@ const BrandLogo = ({ size = 'md' }) => {
     '5xl': 'h-80'
   };
 
-  // Select logo based on theme
-  const logoSrc = theme === 'dark' ? logoDark : logoWhite;
+  // Select logo based on theme (or force dark if specified)
+  const logoSrc = forceDark || theme === 'dark' ? logoDark : logoWhite;
 
   return (
     <img 

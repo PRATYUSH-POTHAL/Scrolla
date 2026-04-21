@@ -126,8 +126,24 @@ router.get('/', optionalAuth, async (req, res) => {
         let query = { visibility: 'public' };
 
         if (filter === 'active') {
-            query.closedAt = null;
-            query.deadline = { $gt: now };
+            // Base: all public active journeys
+            const baseCondition = { visibility: 'public', closedAt: null, deadline: { $gt: now } };
+
+            // If logged-in, also include the user's private journeys they belong to
+            if (req.user) {
+                const userMemberships = await JourneyMember.find({ user: req.user._id })
+                    .select('journey').lean();
+                const userJourneyIds = userMemberships.map(m => m.journey);
+
+                query = {
+                    $or: [
+                        baseCondition,
+                        { _id: { $in: userJourneyIds }, closedAt: null, deadline: { $gt: now } }
+                    ]
+                };
+            } else {
+                query = baseCondition;
+            }
         } else if (filter === 'closed') {
             query.$or = [{ closedAt: { $ne: null } }, { deadline: { $lte: now } }];
         }
@@ -175,6 +191,7 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 // ────────────────────────────────────────────────
+
 // @route   GET /api/journeys/mine
 // @desc    Journeys I created or joined
 // @access  Private

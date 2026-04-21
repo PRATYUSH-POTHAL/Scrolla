@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import Follow from '../models/Follow.js';
+import Notification from '../models/Notification.js';
 import { protect } from '../middleware/auth.js';
 import { optionalAuth } from '../middleware/optionalAuth.js';
 
@@ -78,7 +79,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
 router.put('/:id', protect, [
     body('username').optional().trim().isLength({ min: 3, max: 30 }),
     body('bio').optional().isLength({ max: 200 }),
-    body('avatar').optional().isURL()
+    body('avatar').optional().isURL(),
+    body('location').optional().trim().isLength({ max: 100 }),
+    body('website').optional().trim().isLength({ max: 200 }),
+    body('role').optional().trim().isLength({ max: 50 })
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -91,12 +95,15 @@ router.put('/:id', protect, [
             return res.status(403).json({ message: 'Not authorized to update this profile' });
         }
 
-        const { username, bio, avatar } = req.body;
+        const { username, bio, avatar, location, website, role } = req.body;
         const updateFields = {};
 
         if (username) updateFields.username = username;
         if (bio !== undefined) updateFields.bio = bio;
         if (avatar) updateFields.avatar = avatar;
+        if (location !== undefined) updateFields.location = location;
+        if (website !== undefined) updateFields.website = website;
+        if (role !== undefined) updateFields.role = role;
 
         const user = await User.findByIdAndUpdate(
             req.params.id,
@@ -143,6 +150,13 @@ router.post('/:id/follow', protect, async (req, res) => {
             followee: req.params.id
         });
 
+        // Fire new_follower notification (upsert – no duplicate spam)
+        await Notification.findOneAndUpdate(
+            { recipient: req.params.id, sender: req.user._id, type: 'new_follower' },
+            { recipient: req.params.id, sender: req.user._id, type: 'new_follower', isRead: false },
+            { upsert: true, new: true }
+        );
+
         res.json({ message: 'Successfully followed user' });
     } catch (error) {
         console.error('Follow error:', error);
@@ -163,6 +177,13 @@ router.delete('/:id/follow', protect, async (req, res) => {
         if (!deletedFollow) {
             return res.status(400).json({ message: 'Not following this user' });
         }
+
+        // Remove the corresponding new_follower notification
+        await Notification.findOneAndDelete({
+            recipient: req.params.id,
+            sender: req.user._id,
+            type: 'new_follower'
+        });
 
         res.json({ message: 'Successfully unfollowed user' });
     } catch (error) {

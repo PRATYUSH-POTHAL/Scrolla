@@ -117,9 +117,6 @@ const CreatePost = () => {
                     <BrandLogo size="md" />
                 </Link>
                 <div className="cp-nav-end">
-                    <button className="cp-icon-btn" title="Messages">
-                        <MessageSquare className="w-[18px] h-[18px]" />
-                    </button>
                     <button className="cp-icon-btn" title="Notifications">
                         <Bell className="w-[18px] h-[18px]" />
                         <div className="cp-notif-dot"></div>

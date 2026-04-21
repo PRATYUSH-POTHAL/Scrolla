@@ -4,7 +4,7 @@ import User from '../models/User.js';
 export const protect = async (req, res, next) => {
     let token;
 
-    // Check for token in Authorization header
+    // Check for token in Authorization header (Bearer token)
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             // Get token from header
@@ -25,9 +25,7 @@ export const protect = async (req, res, next) => {
             console.error('Auth middleware error:', error);
             return res.status(401).json({ message: 'Not authorized, token failed' });
         }
-    }
-
-    if (!token) {
+    } else if (!token) {
         return res.status(401).json({ message: 'Not authorized, no token' });
     }
 };

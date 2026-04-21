@@ -1,0 +1,90 @@
+/* Hand-Drawn Design System - Global Styles */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROOT & BODY STYLES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Hand-Drawn Color Palette */
+  --hd-bg: #fdfbf7;
+  --hd-fg: #2d2d2d;
+  --hd-muted: #e5e0d8;
+  --hd-accent: #ff4d4d;
+  --hd-accent-dark: #e63946;
+  --hd-secondary: #2d5da1;
+  --hd-secondary-light: #4a7ba7;
+  --hd-white: #ffffff;
+  --hd-black: #2d2d2d;
+
+  /* Shadows */
+  --hd-shadow-sm: 2px 2px 0px 0px rgba(45, 45, 45, 0.15);
+  --hd-shadow: 4px 4px 0px 0px #2d2d2d;
+  --hd-shadow-lg: 6px 6px 0px 0px #2d2d2d;
+  --hd-shadow-hover: 2px 2px 0px 0px #2d2d2d;
+
+  /* Transitions */
+  --hd-transition: all 150ms ease-out;
+
+  /* Typography */
+  --hd-font-heading: 'Sora', sans-serif;
+  --hd-font-body: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes jiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(1deg);
+  }
+  100% {
+    transform: rotate(-1deg);
+  }
+}
+
+@keyframes wobble {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-1deg);
+  }
+  75% {
+    transform: rotate(1deg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.hd-wobbly {
+  animation: wobble 3s ease-in-out infinite;
+}
+
+.hd-shadow {
+  box-shadow: var(--hd-shadow);
+}
+
+.hd-shadow-hover:hover {
+  box-shadow: var(--hd-shadow-lg);
+}

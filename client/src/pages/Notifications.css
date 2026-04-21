@@ -1,0 +1,484 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Notifications.css — Scrolla Notification Centre
+   Only 2 notification types: Journey Invites + New Followers
+   "Your attention is yours."
+   ══════════════════════════════════════════════════════════════════════ */
+
+.notif-page {
+  min-height: 100vh;
+  background: var(--defi-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top Nav ─────────────────────────────────────────────────────────── */
+.notif-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(3, 3, 4, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0 1.5rem;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.notif-nav-back {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--defi-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  transition: color 200ms ease;
+  padding: 0;
+}
+.notif-nav-back:hover { color: var(--defi-fg); }
+
+.notif-nav-title {
+  display: flex;
+  flex-direction: column;
+}
+.notif-nav-title h1 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  color: var(--defi-fg);
+}
+.notif-nav-title span {
+  font-size: 0.7rem;
+  color: var(--defi-muted);
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.notif-mark-all {
+  background: none;
+  border: none;
+  color: var(--defi-orange-primary);
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  transition: all 200ms ease;
+  white-space: nowrap;
+}
+.notif-mark-all:hover {
+  background: rgba(247, 147, 26, 0.1);
+}
+
+/* ── Main Container ────────────────────────────────────────────────── */
+.notif-body {
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 1.5rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ── Section Label ─────────────────────────────────────────────────── */
+.notif-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--defi-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 0.75rem;
+}
+
+/* ── Notification Card ──────────────────────────────────────────────── */
+.notif-card {
+  background: var(--defi-surface);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  transition: border-color 200ms ease, opacity 200ms ease;
+  overflow: hidden;
+}
+
+/* Unread accent stripe */
+.notif-card.unread {
+  border-left: 3px solid var(--defi-orange-primary);
+}
+
+/* Read cards fade back */
+.notif-card.read-notif {
+  opacity: 0.6;
+}
+
+/* Ended journey invite dim */
+.notif-card.ended {
+  opacity: 0.5;
+}
+
+.notif-card:hover {
+  border-color: rgba(247, 147, 26, 0.25);
+  opacity: 1;
+}
+
+/* Unread orange dot */
+.notif-unread-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--defi-orange-primary);
+  border-radius: 50%;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  box-shadow: 0 0 8px rgba(247, 147, 26, 0.6);
+  flex-shrink: 0;
+}
+
+/* ── Card Header Row ─────────────────────────────────────────────────── */
+.notif-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.notif-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.notif-avatar-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--defi-orange-dark), var(--defi-orange-primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  color: #fff;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+}
+
+.notif-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--defi-fg);
+  font-family: var(--font-body);
+  line-height: 1.4;
+}
+
+.notif-card-title strong {
+  color: var(--defi-fg);
+  font-weight: 700;
+}
+
+.notif-card-subtitle {
+  font-size: 0.75rem;
+  color: var(--defi-muted);
+  margin-top: 0.15rem;
+  font-family: var(--font-body);
+}
+
+.notif-time {
+  font-size: 0.7rem;
+  color: var(--defi-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+/* ── Journey Detail Box ──────────────────────────────────────────────── */
+.notif-journey-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.notif-journey-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.notif-journey-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--defi-fg);
+  font-family: var(--font-heading);
+}
+
+.notif-badge-live {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(247, 147, 26, 0.15);
+  border: 1px solid rgba(247, 147, 26, 0.4);
+  color: var(--defi-orange-primary);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  animation: pulse-badge 2s ease infinite;
+}
+
+.notif-badge-ended {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(107, 114, 128, 0.2);
+  border: 1px solid rgba(107, 114, 128, 0.4);
+  color: #6b7280;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+}
+
+.notif-journey-prompt {
+  font-size: 0.8rem;
+  color: var(--defi-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.notif-journey-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--defi-muted);
+}
+
+.notif-timeleft {
+  color: var(--defi-orange-primary);
+  font-weight: 600;
+}
+
+/* ── Action Buttons Row ─────────────────────────────────────────────── */
+.notif-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notif-actions-left {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.notif-btn-join {
+  background: var(--defi-fg);
+  color: var(--defi-bg);
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 200ms ease;
+  letter-spacing: 0.02em;
+}
+.notif-btn-join:hover {
+  background: var(--defi-orange-primary);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.notif-btn-maybe {
+  background: transparent;
+  color: var(--defi-muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.notif-btn-maybe:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--defi-fg);
+}
+
+.notif-btn-follow {
+  background: var(--defi-fg);
+  color: var(--defi-bg);
+  border: none;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+.notif-btn-follow:hover {
+  background: var(--defi-orange-primary);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.notif-btn-following {
+  background: transparent;
+  color: var(--defi-muted);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: default;
+}
+
+/* ── Maybe Later reminder toast ─────────────────────────────────────── */
+.notif-reminder-pill {
+  background: rgba(247, 147, 26, 0.08);
+  border: 1px solid rgba(247, 147, 26, 0.25);
+  border-radius: 10px;
+  padding: 0.6rem 0.875rem;
+  font-size: 0.75rem;
+  color: var(--defi-orange-primary);
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation: slideDown 300ms ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────── */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.notif-empty-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(247, 147, 26, 0.07);
+  border: 1px solid rgba(247, 147, 26, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--defi-orange-primary);
+}
+
+.notif-empty h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--defi-fg);
+  font-family: var(--font-heading);
+}
+
+.notif-empty p {
+  font-size: 0.8rem;
+  color: var(--defi-muted);
+  max-width: 300px;
+  line-height: 1.6;
+}
+
+.notif-empty-brand {
+  font-size: 0.8rem;
+  color: var(--defi-muted);
+  font-style: italic;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 1.5rem;
+  max-width: 340px;
+  margin-top: 0.5rem;
+  line-height: 1.6;
+}
+
+/* ── Footer Caption ─────────────────────────────────────────────────── */
+.notif-footer-caption {
+  text-align: center;
+  padding: 2rem 1rem;
+  font-size: 0.78rem;
+  color: rgba(184, 197, 214, 0.45);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  margin-top: 1rem;
+}
+
+/* ── Loading skeleton ───────────────────────────────────────────────── */
+.notif-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notif-skeleton-card {
+  background: var(--defi-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.skel {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skel-circle { border-radius: 50%; }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .notif-nav { padding: 0 1rem; }
+  .notif-body { padding: 1rem 0.75rem 3rem; }
+  .notif-card { padding: 0.875rem 1rem; }
+}

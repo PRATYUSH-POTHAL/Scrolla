@@ -1,0 +1,21 @@
+/* Hand-Drawn Input Styles */
+
+.hand-drawn-input {
+  cursor: text;
+  transition: all 150ms ease-out;
+}
+
+.hand-drawn-input:focus {
+  outline: none;
+  border-color: #2d5da1;
+  box-shadow: 0 0 0 3px rgba(45, 93, 161, 0.15);
+}
+
+.hand-drawn-input.textarea {
+  resize: vertical;
+  font-family: 'Patrick Hand', cursive;
+}
+
+.hand-drawn-input::placeholder {
+  opacity: 0.4;
+}

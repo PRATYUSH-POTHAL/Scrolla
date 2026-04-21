@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Plus, X, ArrowLeft, ArrowRight, Clock, Users, Lock, Globe, Megaphone, MessageSquare, Key, ChevronRight, Loader } from 'lucide-react';
+import { Map, Plus, X, ArrowLeft, Clock, Users, Lock, Globe, Megaphone, MessageSquare, Key, ChevronRight, Loader, Home, Bookmark, User, Bell, PlusSquare, Compass, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { sharedJourneyService } from '../services/sharedJourneyService';
+import BrandLogo from '../components/BrandLogo';
 import toast from 'react-hot-toast';
 import './JourneyDiscover.css';
 
@@ -55,56 +57,75 @@ function Countdown({ deadline, closedAt }) {
 function JourneyCard({ journey, onJoin, joining }) {
     const navigate = useNavigate();
     const isActive = !journey.closedAt && new Date(journey.deadline) > new Date();
+    // Fake progress: member-based for now (real progress would need post tracking)
+    const progress = journey.isMember
+        ? Math.min(95, Math.round((journey.postCount || 0) / Math.max(journey.memberCount || 1, 1) * 100 + 20))
+        : Math.min(90, Math.round((journey.memberCount || 0) / 300 * 100));
 
     return (
         <motion.div
-            className={`jd-card ${!isActive ? 'closed' : ''}`}
-            whileHover={isActive ? { y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.15)' } : {}}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className={`jd-card ${!isActive ? 'closed' : ''} ${journey.isMember ? 'member' : ''}`}
+            whileHover={isActive ? { y: -3 } : {}}
+            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
             onClick={() => navigate(`/journeys/${journey._id}`)}
         >
-            <div className="jd-card-header">
-                <div className="jd-card-badges">
-                    <span className={`jd-badge ${isActive ? 'live' : 'ended'}`}>
-                        {isActive ? '🔴 Live' : '✅ Ended'}
-                    </span>
-                    <span className="jd-badge mode">
-                        {journey.postingMode === 'broadcast' ? <><Megaphone size={10} /> Broadcast</> : <><MessageSquare size={10} /> Open</>}
-                    </span>
-                    <span className="jd-badge visibility">
-                        {journey.visibility === 'private' ? <><Lock size={10} /> Private</> : <><Globe size={10} /> Public</>}
-                    </span>
-                </div>
+            {/* Badges row */}
+            <div className="jd-card-badges">
+                <span className={`jd-badge ${isActive ? 'live' : 'ended'}`}>
+                    {isActive ? '● Live' : '✓ Ended'}
+                </span>
+                <span className="jd-badge mode">
+                    {journey.postingMode === 'broadcast'
+                        ? <><Megaphone size={9} /> broadcast</>
+                        : <><MessageSquare size={9} /> open</>}
+                </span>
+                <span className="jd-badge visibility">
+                    {journey.visibility === 'private'
+                        ? <><Lock size={9} /> private</>
+                        : <><Globe size={9} /> public</>}
+                </span>
                 {journey.mood && <span className="jd-mood">{MOOD_EMOJIS[journey.mood]}</span>}
             </div>
 
+            {/* Title + Prompt */}
             <h3 className="jd-card-title">{journey.title}</h3>
             <p className="jd-card-prompt">"{journey.prompt}"</p>
 
+            {isActive && (
+                <div className="jd-progress-row">
+                    <div className="jd-progress-header">
+                        <span className="jd-progress-label">Progress</span>
+                        <span className="jd-progress-pct">{progress}%</span>
+                    </div>
+                    <div className="jd-progress-track">
+                        <div className="jd-progress-fill" style={{ width: `${progress}%` }} />
+                    </div>
+                </div>
+            )}
+
+            {/* Meta */}
             <div className="jd-card-meta">
                 <span className="jd-meta-item"><Users size={13} /> {journey.memberCount} members</span>
                 <Countdown deadline={journey.deadline} closedAt={journey.closedAt} />
             </div>
 
-            <div className="jd-card-creator">
-                {journey.creator?.avatar
-                    ? <img src={journey.creator.avatar} alt="" className="jd-avatar" />
-                    : <div className="jd-avatar-placeholder">{journey.creator?.username?.[0]?.toUpperCase()}</div>
-                }
-                <span>by @{journey.creator?.username}</span>
-            </div>
-
+            {/* CTA */}
+            {isActive && journey.isMember && (
+                <button
+                    className="jd-continue-btn"
+                    onClick={e => { e.stopPropagation(); navigate(`/journeys/${journey._id}`); }}
+                >
+                    ▶ Continue Journey
+                </button>
+            )}
             {isActive && !journey.isMember && (
                 <button
-                    className="jd-join-btn"
+                    className="jd-join-btn outline"
                     onClick={e => { e.stopPropagation(); onJoin(journey._id); }}
                     disabled={joining === journey._id}
                 >
-                    {joining === journey._id ? <Loader size={14} className="spin" /> : 'Join Journey →'}
+                    {joining === journey._id ? <Loader size={14} className="spin" /> : 'Join Journey'}
                 </button>
-            )}
-            {journey.isMember && isActive && (
-                <div className="jd-member-badge">✅ You're in · <span>View Feed →</span></div>
             )}
         </motion.div>
     );
@@ -174,6 +195,13 @@ function CreateWizard({ onClose, onCreated }) {
                             <div key={s} className={`jd-step-dot ${step >= s ? 'active' : ''}`} />
                         ))}
                     </div>
+                    <div className="jd-step-labels">
+                        {['Mission', 'Speak', 'Access', 'Time'].map((label, i) => (
+                            <div key={i} className={`jd-step-label ${step === i + 1 ? 'active' : ''}`}>
+                                {label}
+                            </div>
+                        ))}
+                    </div>
                     <h2 className="jd-wizard-title">
                         {step === 1 && '✨ The Mission'}
                         {step === 2 && '📢 Who Speaks?'}
@@ -184,6 +212,21 @@ function CreateWizard({ onClose, onCreated }) {
                 </div>
 
                 <div className="jd-wizard-body">
+                    {step === 1 && (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(232, 168, 139, 0.1) 0%, rgba(232, 168, 139, 0.05) 100%)',
+                            borderRadius: '16px',
+                            padding: '16px 18px',
+                            marginBottom: '8px',
+                            borderLeft: '4px solid #E8A88B',
+                            marginTop: '-10px'
+                        }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#2C2B28', fontWeight: '600', lineHeight: '1.5' }}>
+                                💡 <strong>Why this journey matters?</strong><br/>
+                                This journey will shape what people share and create meaningful connections.
+                            </p>
+                        </div>
+                    )}
                     <AnimatePresence mode="wait">
                         {step === 1 && (
                             <motion.div key="s1" className="jd-wizard-step" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}>
@@ -281,15 +324,19 @@ function CreateWizard({ onClose, onCreated }) {
                             <motion.div key="s4" className="jd-wizard-step" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }}>
                                 <p className="jd-step-desc">How long should this journey run?</p>
                                 <div className="jd-duration-grid">
-                                    {DURATION_PRESETS.map(p => (
-                                        <button
-                                            key={p.hours}
-                                            className={`jd-duration-btn ${!form.useCustom && form.durationHours === p.hours ? 'active' : ''}`}
-                                            onClick={() => { set('durationHours', p.hours); set('useCustom', false); }}
-                                        >
-                                            {p.label}
-                                        </button>
-                                    ))}
+                                    {DURATION_PRESETS.map(p => {
+                                        const endTime = new Date(Date.now() + p.hours * 3600 * 1000);
+                                        return (
+                                            <button
+                                                key={p.hours}
+                                                className={`jd-duration-btn ${!form.useCustom && form.durationHours === p.hours ? 'active' : ''}`}
+                                                onClick={() => { set('durationHours', p.hours); set('useCustom', false); }}
+                                                title={`Ends ${endTime.toLocaleString()}`}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        );
+                                    })}
                                     <button
                                         className={`jd-duration-btn custom ${form.useCustom ? 'active' : ''}`}
                                         onClick={() => set('useCustom', true)}
@@ -297,6 +344,11 @@ function CreateWizard({ onClose, onCreated }) {
                                         Custom date
                                     </button>
                                 </div>
+                                {!form.useCustom && (
+                                    <p style={{ fontSize: '12px', color: '#A8A5A0', marginTop: '8px', textAlign: 'center', fontStyle: 'italic' }}>
+                                        ⏰ Ends {new Date(Date.now() + form.durationHours * 3600 * 1000).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                )}
                                 {form.useCustom && (
                                     <input
                                         type="datetime-local"
@@ -310,9 +362,9 @@ function CreateWizard({ onClose, onCreated }) {
                                 <div className="jd-wizard-summary">
                                     <h4>📋 Summary</h4>
                                     <p><strong>"{form.title}"</strong></p>
-                                    <p>Prompt: {form.prompt}</p>
-                                    <p>Mode: {form.postingMode} · {form.visibility}</p>
-                                    <p>Duration: {form.useCustom
+                                    <p><span style={{ fontSize: '12px', color: '#A8A5A0' }}>Prompt</span><br/>{form.prompt}</p>
+                                    <p><span style={{ fontSize: '12px', color: '#A8A5A0' }}>Mode</span><br/>{form.postingMode} • {form.visibility}</p>
+                                    <p><span style={{ fontSize: '12px', color: '#A8A5A0' }}>Duration</span><br/>{form.useCustom
                                         ? (form.customDeadline ? new Date(form.customDeadline).toLocaleString() : 'Pick a date')
                                         : DURATION_PRESETS.find(p => p.hours === form.durationHours)?.label
                                     }</p>
@@ -389,7 +441,8 @@ function JoinByCodeModal({ onClose, onJoined }) {
 
 // ─── Main Page ───
 export default function JourneyDiscover() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [journeys, setJourneys] = useState([]);
     const [filter, setFilter] = useState('active');
@@ -399,13 +452,11 @@ export default function JourneyDiscover() {
     const [joining, setJoining] = useState(null);
     const [showWizard, setShowWizard] = useState(false);
     const [showCodeModal, setShowCodeModal] = useState(false);
-    const [showEntryModal, setShowEntryModal] = useState(true); // entry choice modal
 
     const fetchJourneys = useCallback(async (f = filter, p = 1) => {
         setLoading(true);
         try {
             if (f === 'mine') {
-                // Mine uses a separate authenticated endpoint
                 const data = await sharedJourneyService.getMine();
                 setJourneys(data);
                 setHasMore(false);
@@ -444,109 +495,128 @@ export default function JourneyDiscover() {
     };
 
     return (
-        <div className="jd-page">
-            <AnimatePresence>
-                {showWizard && <CreateWizard onClose={() => setShowWizard(false)} onCreated={handleCreated} />}
-                {showCodeModal && <JoinByCodeModal onClose={() => setShowCodeModal(false)} onJoined={() => {}} />}
-            </AnimatePresence>
+        <div className="jd-wrapper">
+            {/* ─── SIDEBAR ─── */}
+            <aside className="jd-sidebar">
+                <Link to="/feed" className="jd-sidebar-logo">
+                    <BrandLogo size="md" />
+                </Link>
 
-            {/* Entry modal — shown on first visit, ask what they want */}
-            <AnimatePresence>
-                {showEntryModal && (
-                    <motion.div className="jd-wizard-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <motion.div className="jd-entry-modal" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                            <button className="jd-wizard-close" onClick={() => setShowEntryModal(false)}><X size={18} /></button>
-                            <div className="jd-entry-icon">🗺️</div>
-                            <h2>Journeys</h2>
-                            <p>Join a shared mission, post to a private feed, and see the recap when it ends.</p>
-                            <div className="jd-entry-options">
-                                <button className="jd-entry-btn" onClick={() => setShowEntryModal(false)}>
-                                    <span className="jd-entry-btn-icon">🔍</span>
-                                    <div>
-                                        <strong>Browse Journeys</strong>
-                                        <span>Discover active missions</span>
-                                    </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                                <button className="jd-entry-btn" onClick={() => { setShowEntryModal(false); setShowWizard(true); }}>
-                                    <span className="jd-entry-btn-icon">✨</span>
-                                    <div>
-                                        <strong>Create a Journey</strong>
-                                        <span>Start your own mission</span>
-                                    </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                                <button className="jd-entry-btn" onClick={() => { setShowEntryModal(false); setShowCodeModal(true); }}>
-                                    <span className="jd-entry-btn-icon">🔑</span>
-                                    <div>
-                                        <strong>I have an invite code</strong>
-                                        <span>Join a private journey</span>
-                                    </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                <nav className="jd-sidebar-nav">
+                    <Link to="/feed" className="jd-sidebar-item">
+                        <Home size={22} /><span>Home</span>
+                    </Link>
+                    <Link to="/feed" className="jd-sidebar-item">
+                        <Compass size={22} /><span>Explore</span>
+                    </Link>
+                    <Link to="/journeys" className="jd-sidebar-item jd-sidebar-item--active">
+                        <Map size={22} /><span>Journeys</span>
+                    </Link>
+                    <Link to="/saved" className="jd-sidebar-item">
+                        <Bookmark size={22} /><span>Saved</span>
+                    </Link>
+                    <Link to={`/profile/${user?._id}`} className="jd-sidebar-item">
+                        <User size={22} /><span>Profile</span>
+                    </Link>
+                    <Link to="/notifications" className="jd-sidebar-item">
+                        <Bell size={22} /><span>Notifications</span>
+                    </Link>
+                    <button className="jd-sidebar-item" onClick={() => setShowWizard(true)}>
+                        <PlusSquare size={22} /><span>+ Create</span>
+                    </button>
+                </nav>
 
-            <div className="jd-header">
-                <div className="jd-header-left">
-                    <Link to="/feed" className="jd-back"><ArrowLeft size={18} /></Link>
+                <div className="jd-sidebar-bottom">
+                    <div className="jd-sidebar-kids">
+                        <span>Kids Mode</span>
+                        <div className="jd-kids-toggle"><div className="jd-kids-thumb" /></div>
+                    </div>
+                    <button className="jd-sidebar-item" onClick={toggleTheme}>
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                        <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                    </button>
+                    <button className="jd-sidebar-logout" onClick={() => { logout(); navigate('/login'); }}>
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            {/* ─── MAIN ─── */}
+            <main className="jd-main">
+                <AnimatePresence>
+                    {showWizard && <CreateWizard onClose={() => setShowWizard(false)} onCreated={handleCreated} />}
+                    {showCodeModal && <JoinByCodeModal onClose={() => setShowCodeModal(false)} onJoined={() => {}} />}
+                </AnimatePresence>
+
+                {/* Header */}
+                <div className="jd-header">
                     <div>
-                        <h1 className="jd-title">🗺️ Journeys</h1>
+                        <h1 className="jd-title">Journeys</h1>
                         <p className="jd-subtitle">Shared missions with a deadline</p>
                     </div>
-                </div>
-                <div className="jd-header-actions">
-                    <button className="jd-btn-ghost" onClick={() => setShowCodeModal(true)}>
-                        <Key size={16} /> Join with code
-                    </button>
-                    <button className="jd-btn-primary" onClick={() => setShowWizard(true)}>
-                        <Plus size={16} /> Create
-                    </button>
-                </div>
-            </div>
-
-            <div className="jd-filters">
-                {['active','mine','closed'].map(f => (
-                    <button
-                        key={f}
-                        className={`jd-filter-btn ${filter === f ? 'active' : ''}`}
-                        onClick={() => setFilter(f)}
-                    >
-                        {f === 'active' ? '🔴 Active' : f === 'mine' ? '👤 Mine' : '✅ Ended'}
-                    </button>
-                ))}
-            </div>
-
-            {loading && page === 1 ? (
-                <div className="jd-loading">
-                    {[1,2,3,4,5,6].map(i => <div key={i} className="jd-skeleton" />)}
-                </div>
-            ) : journeys.length === 0 ? (
-                <div className="jd-empty">
-                    <div className="jd-empty-icon">🗺️</div>
-                    <h3>{filter === 'mine' ? 'No journeys yet' : 'No active journeys'}</h3>
-                    <p>{filter === 'mine' ? 'Join or create your first journey!' : 'Be the first to start one!'}</p>
-                    <button className="jd-btn-primary" onClick={() => setShowWizard(true)}>
-                        <Plus size={16} /> Create Journey
-                    </button>
-                </div>
-            ) : (
-                <>
-                    <div className="jd-grid">
-                        {journeys.map(j => (
-                            <JourneyCard key={j._id} journey={j} onJoin={handleJoin} joining={joining} />
-                        ))}
-                    </div>
-                    {hasMore && (
-                        <button className="jd-load-more" onClick={() => fetchJourneys(filter, page + 1)} disabled={loading}>
-                            {loading ? <Loader size={16} className="spin" /> : 'Load more'}
+                    <div className="jd-header-actions">
+                        <button className="jd-btn-ghost" onClick={() => setShowCodeModal(true)}>
+                            <Key size={15} /> Join with code
                         </button>
-                    )}
-                </>
-            )}
+                        <button className="jd-btn-primary" onClick={() => setShowWizard(true)}>
+                            <Plus size={15} /> Create
+                        </button>
+                    </div>
+                </div>
+
+                {/* Filter tabs */}
+                <div className="jd-filters">
+                    {[['active','Active'],['mine','Mine'],['closed','Ended']].map(([val, label]) => (
+                        <button
+                            key={val}
+                            className={`jd-filter-btn ${filter === val ? 'active' : ''}`}
+                            onClick={() => setFilter(val)}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content */}
+                {loading && page === 1 ? (
+                    <div className="jd-loading">
+                        {[1,2,3,4].map(i => <div key={i} className="jd-skeleton" />)}
+                    </div>
+                ) : journeys.length === 0 ? (
+                    <div className="jd-empty">
+                        <div className="jd-empty-icon">🗺️</div>
+                        <h3>{filter === 'mine' ? 'No journeys yet' : 'No active journeys'}</h3>
+                        <p>{filter === 'mine' ? 'Join or create your first journey!' : 'Be the first to start one!'}</p>
+                        <button className="jd-btn-primary" onClick={() => setShowWizard(true)}>
+                            <Plus size={16} /> Create Journey
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="jd-grid">
+                            {journeys.map(j => (
+                                <JourneyCard key={j._id} journey={j} onJoin={handleJoin} joining={joining} />
+                            ))}
+                            <motion.div
+                                className="jd-card jd-create-card"
+                                whileHover={{ y: -2 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                                onClick={() => setShowWizard(true)}
+                            >
+                                <div className="jd-create-inner">
+                                    <div className="jd-create-icon"><Plus size={28} /></div>
+                                    <span className="jd-create-label">Create New Journey</span>
+                                </div>
+                            </motion.div>
+                        </div>
+                        {hasMore && (
+                            <button className="jd-load-more" onClick={() => fetchJourneys(filter, page + 1)} disabled={loading}>
+                                {loading ? <Loader size={16} className="spin" /> : 'Load more'}
+                            </button>
+                        )}
+                    </>
+                )}
+            </main>
         </div>
     );
 }

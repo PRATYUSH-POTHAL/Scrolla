@@ -1,0 +1,639 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MOOD LOG COMPONENT — Scrolla
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.moodlog-root {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 4px 0 24px;
+    /* Span full width, not trapped in the posts grid */
+    grid-column: 1 / -1;
+}
+
+/* ── Loading ── */
+.moodlog-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 0;
+    color: var(--prof-muted, #888);
+    font-size: 0.9rem;
+}
+
+.moodlog-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2.5px solid rgba(247, 147, 26, 0.25);
+    border-top-color: #F7931A;
+    border-radius: 50%;
+    animation: moodlog-spin 0.8s linear infinite;
+}
+
+@keyframes moodlog-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ═══ CHART CARD ═══ */
+.moodlog-chart-card {
+    background: var(--defi-bg-elevated, #1a1917);
+    border: 1px solid var(--prof-border, #333);
+    border-radius: 16px;
+    padding: 24px 28px 20px;
+    transition: box-shadow 0.2s;
+}
+
+.moodlog-chart-card:hover {
+    box-shadow: 0 4px 24px rgba(247, 147, 26, 0.07);
+}
+
+/* Header */
+.moodlog-chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 12px;
+}
+
+.moodlog-chart-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--prof-text, #f4f1ed);
+}
+
+.moodlog-chart-range {
+    font-size: 0.8rem;
+    color: var(--prof-muted, #888);
+    margin: 0;
+}
+
+.moodlog-log-btn {
+    background: none;
+    border: none;
+    color: #F7931A;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-log-btn:hover { opacity: 0.75; }
+
+/* ── BAR CHART ── */
+.moodlog-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.moodlog-bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.moodlog-bar-wrap {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    position: relative;
+    border-radius: 8px 8px 0 0;
+}
+
+/* Filled bar */
+.moodlog-bar-fill {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 6px;
+    transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s;
+    cursor: default;
+}
+
+.moodlog-bar-fill:hover {
+    box-shadow: 0 0 0 2px rgba(247, 147, 26, 0.4);
+}
+
+.moodlog-bar-emoji {
+    font-size: 1.2rem;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+    line-height: 1;
+}
+
+/* TODAY'S EMPTY BAR AND TIME-OF-DAY SELECTOR */
+.moodlog-bar-today-empty {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    border: 2px dashed #F7931A;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(247, 147, 26, 0.04);
+    box-sizing: border-box;
+}
+
+.moodlog-bar-today-plus {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid #F7931A;
+    background: none;
+    color: #F7931A;
+    font-size: 1.25rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-bar-today-plus:hover {
+    background: rgba(247, 147, 26, 0.15);
+}
+
+/* Day label */
+.moodlog-bar-label {
+    font-size: 0.75rem;
+    color: var(--prof-muted, #888);
+    font-weight: 500;
+    text-align: center;
+}
+
+.moodlog-bar-label.today {
+    color: #F7931A;
+    font-weight: 700;
+}
+
+.moodlog-bar-label.future {
+    color: var(--prof-muted, #888);
+    opacity: 0.5;
+}
+
+/* Future bar — lock icon, lower opacity, no interaction */
+.moodlog-bar-future {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+    background: var(--prof-border, #2a2927);
+    opacity: 0.35;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: not-allowed;
+}
+
+.moodlog-bar-lock {
+    font-size: 1.2rem;
+    opacity: 0.6;
+}
+
+/* Empty dot for missed days (past days with no mood logged) */
+.moodlog-bar-empty-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--prof-muted, #888);
+    opacity: 0.4;
+    margin: auto;
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .moodlog-chart-card {
+    background: #FFFFFF;
+    border-color: #E4E0DA;
+}
+
+[data-theme="light"] .moodlog-bar-empty {
+    background: #E4E0DA;
+}
+
+[data-theme="light"] .moodlog-chart-title {
+    color: #2C2B28;
+}
+
+/* ═══ STAT CARDS ═══ */
+.moodlog-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 600px) {
+    .moodlog-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.moodlog-stat-card {
+    background: var(--defi-bg-elevated, #1a1917);
+    border: 1px solid var(--prof-border, #333);
+    border-radius: 12px;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.moodlog-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.moodlog-stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--prof-text, #f4f1ed);
+    line-height: 1;
+}
+
+.moodlog-stat-value.accent {
+    font-size: 1.25rem;
+    color: #F7931A;
+}
+
+.moodlog-stat-label {
+    font-size: 0.75rem;
+    color: var(--prof-muted, #888);
+    text-align: center;
+    font-weight: 500;
+}
+
+[data-theme="light"] .moodlog-stat-card {
+    background: #FFFFFF;
+    border-color: #E4E0DA;
+}
+
+[data-theme="light"] .moodlog-stat-value {
+    color: #2C2B28;
+}
+
+/* ═══ EMPTY CTA ═══ */
+.moodlog-empty-cta {
+    text-align: center;
+    padding: 32px 24px;
+    background: var(--defi-bg-elevated, #1a1917);
+    border: 1px dashed var(--prof-border, #333);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.moodlog-empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 4px;
+}
+
+.moodlog-empty-cta p {
+    margin: 0;
+    color: var(--prof-text, #f4f1ed);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.moodlog-empty-sub {
+    color: var(--prof-muted, #888) !important;
+    font-weight: 400 !important;
+    font-size: 0.85rem !important;
+}
+
+.moodlog-cta-btn {
+    margin-top: 12px;
+    background: #F7931A;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-cta-btn:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+/* ═══ LOG MODAL ═══ */
+.moodlog-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.moodlog-modal {
+    background: var(--defi-bg-elevated, #1a1917);
+    border: 1px solid var(--prof-border, #333);
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    animation: moodlog-modal-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes moodlog-modal-in {
+    from { opacity: 0; transform: scale(0.92) translateY(10px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.moodlog-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.moodlog-modal-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--prof-text, #f4f1ed);
+}
+
+.moodlog-modal-close {
+    background: none;
+    border: none;
+    color: var(--prof-muted, #888);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-modal-close:hover {
+    background: var(--prof-border, #333);
+}
+
+/* Mood picker grid */
+.moodlog-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.moodlog-pick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px;
+    border-radius: 10px;
+    border: 1.5px solid var(--prof-border, #333);
+    background: var(--defi-bg, #141311);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-pick-btn:hover {
+    border-color: #F7931A;
+    transform: translateY(-2px);
+}
+
+.moodlog-pick-btn.selected {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(247, 147, 26, 0.2);
+}
+
+.moodlog-pick-emoji {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.moodlog-pick-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--prof-muted, #888);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.moodlog-pick-btn.selected .moodlog-pick-label {
+    color: inherit;
+}
+
+/* Time of day picker */
+.moodlog-timeofday-row {
+    margin-bottom: 16px;
+}
+
+.moodlog-timeofday-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--prof-muted, #888);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.moodlog-timeofday-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.moodlog-timeofday-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--prof-border, #333);
+    background: var(--defi-bg, #141311);
+    color: var(--prof-muted, #888);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+    font-family: inherit;
+    text-transform: capitalize;
+}
+
+.moodlog-timeofday-btn:hover {
+    border-color: #F7931A;
+    transform: translateY(-1px);
+}
+
+.moodlog-timeofday-btn.selected {
+    background: #F7931A;
+    border-color: #F7931A;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Energy slider */
+.moodlog-energy-row {
+    margin-bottom: 16px;
+}
+
+.moodlog-energy-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--prof-muted, #888);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.moodlog-energy-track {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.moodlog-energy-pip {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--prof-border, #444);
+    background: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    flex-shrink: 0;
+}
+
+.moodlog-energy-pip:hover {
+    transform: scale(1.2);
+}
+
+.moodlog-energy-pip.filled {
+    background: #F7931A;
+    border-color: #F7931A;
+}
+
+.moodlog-energy-hint {
+    font-size: 0.78rem;
+    color: var(--prof-muted, #888);
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+/* Note textarea */
+.moodlog-note {
+    width: 100%;
+    background: var(--defi-bg, #141311);
+    border: 1px solid var(--prof-border, #333);
+    border-radius: 10px;
+    color: var(--prof-text, #f4f1ed);
+    font-size: 0.88rem;
+    font-family: inherit;
+    padding: 12px 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.moodlog-note:focus {
+    border-color: #F7931A;
+}
+
+.moodlog-note::placeholder {
+    color: var(--prof-muted, #666);
+}
+
+/* Modal actions */
+.moodlog-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.moodlog-cancel-btn {
+    background: none;
+    border: 1px solid var(--prof-border, #444);
+    color: var(--prof-text, #f4f1ed);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.moodlog-cancel-btn:hover {
+    background: var(--prof-border, #2a2927);
+}
+
+.moodlog-save-btn {
+    background: #F7931A;
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    font-family: inherit;
+}
+
+.moodlog-save-btn:hover:not(:disabled) {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+.moodlog-save-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Light mode tweaks for modal */
+[data-theme="light"] .moodlog-modal {
+    background: #FFFFFF;
+    border-color: #E4E0DA;
+}
+
+[data-theme="light"] .moodlog-modal-header h3 {
+    color: #2C2B28;
+}
+
+[data-theme="light"] .moodlog-pick-btn {
+    background: #F4F1ED;
+    border-color: #D8D4CE;
+}
+
+[data-theme="light"] .moodlog-note {
+    background: #F9F7F5;
+    border-color: #D8D4CE;
+    color: #2C2B28;
+}
+
+[data-theme="light"] .moodlog-empty-cta {
+    background: #FFFFFF;
+    border-color: #D8D4CE;
+}
+
+[data-theme="light"] .moodlog-empty-cta p {
+    color: #2C2B28;
+}

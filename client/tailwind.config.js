@@ -6,6 +6,10 @@ export default {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                'sora': ['Sora', 'sans-serif'],
+                'inter': ['Inter', 'sans-serif'],
+            },
             colors: {
                 primary: {
                     50: '#f0f9ff',

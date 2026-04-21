@@ -47,8 +47,19 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const updateUser = (userData) => {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        // Also persist the JWT token so the API interceptor can use it for
+        // subsequent requests (e.g. after Google OAuth login)
+        if (userData?.token) {
+            localStorage.setItem('token', userData.token);
+        }
+    };
+
     const value = {
         user,
+        setUser: updateUser,
         login,
         register,
         logout,

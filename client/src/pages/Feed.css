@@ -165,7 +165,7 @@
     gap: 20px;
   }
 
-  .feed-right-panel {
+  .feed-right {
     display: none;
   }
 }
@@ -182,7 +182,7 @@
     display: none !important;
   }
 
-  .feed-right-panel {
+  .feed-right {
     display: none !important;
   }
 }
@@ -610,7 +610,7 @@
 }
 
 /* ─── RIGHT PANEL ─── */
-.feed-right-panel {
+.feed-right {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -619,12 +619,12 @@
   height: fit-content;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
-  padding: 0;
+  padding: 28px 0 0 0;
   align-self: start;
 }
 
 @media (max-width: 1200px) {
-  .feed-right-panel {
+  .feed-right {
     display: none;
   }
 }
@@ -1071,3 +1071,89 @@
     opacity: 0;
   }
 }
+
+/* ─── FOCUS SESSIONS CARD (pic 2 design) ─── */
+.fs-card {
+  background: var(--defi-surface, #0F1115);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fs-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--defi-fg, #fff);
+  letter-spacing: 0.01em;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.fs-heading-icon {
+  display: flex;
+  align-items: center;
+  color: var(--defi-orange-primary, #F7931A);
+}
+
+.fs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  transition: background 0.18s;
+}
+.fs-row:hover { background: rgba(255,255,255,0.04); }
+.fs-row-active { background: rgba(247,147,26,0.07); }
+
+.fs-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.fs-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fs-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--defi-fg, #fff);
+}
+
+.fs-dur {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.fs-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.fs-star:hover { background: rgba(255,255,255,0.07); }

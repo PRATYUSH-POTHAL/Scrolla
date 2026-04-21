@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
-    Edit, UserPlus, UserMinus, MessageSquare, Bell, 
-    Home, Search, Map, Bookmark, User, Sun, Moon, 
-    ChevronLeft, ChevronRight, Play, Heart, MessageCircle, Send, X
+    Edit, UserPlus, UserMinus,
+    Home, Search, Map, Bookmark, User, Sun, Moon, Bell,
+    ChevronLeft, ChevronRight, Play, Heart, MessageCircle, Send, X,
+    Compass, PlusSquare
 } from 'lucide-react';
 import PostCard from '../components/PostCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -12,9 +13,11 @@ import { userService } from '../services/userService';
 import { postService } from '../services/postService';
 import { uploadService } from '../services/uploadService';
 import { commentService } from '../services/commentService';
+import { sharedJourneyService } from '../services/sharedJourneyService';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import './Profile.css';
+import MoodLog from '../components/MoodLog';
 
 const Profile = () => {
     const { id } = useParams();
@@ -23,11 +26,14 @@ const Profile = () => {
     const { theme, toggleTheme } = useTheme();
     const [profile, setProfile] = useState(null);
     const [posts, setPosts] = useState([]);
+    const [savedPosts, setSavedPosts] = useState([]);
+    const [journeys, setJourneys] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
-    const [activeTab, setActiveTab] = useState('posts');
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'posts');
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editForm, setEditForm] = useState({ username: '', bio: '', avatar: null });
+    const [editForm, setEditForm] = useState({ username: '', bio: '', avatar: null, location: '', website: '', role: '' });
     const [uploadPreview, setUploadPreview] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
     
@@ -40,10 +46,20 @@ const Profile = () => {
 
     const isOwnProfile = currentUser?._id === id;
 
+    // Sync tab from URL param when navigating (e.g. ?tab=saved)
+    useEffect(() => {
+        const tabFromUrl = searchParams.get('tab');
+        if (tabFromUrl) setActiveTab(tabFromUrl);
+    }, [searchParams]);
+
     useEffect(() => {
         fetchProfile();
         fetchUserPosts();
-    }, [id]);
+        if (currentUser?._id === id) {
+            fetchSavedPosts();
+            fetchJourneys();
+        }
+    }, [id, currentUser?._id]);
 
     // Keyboard navigation for modal
     useEffect(() => {
@@ -138,6 +154,7 @@ const Profile = () => {
     const fetchProfile = async () => {
         try {
             const userData = await userService.getUser(id);
+            console.log('Fetched profile data:', userData);
             setProfile(userData);
             setIsFollowing(userData.followers?.some(f => f._id === currentUser?._id));
         } catch (error) {
@@ -153,6 +170,24 @@ const Profile = () => {
             setPosts(userPosts);
         } catch (error) {
             console.error('Error fetching posts:', error);
+        }
+    };
+
+    const fetchSavedPosts = async () => {
+        try {
+            const saved = await postService.getSavedPosts();
+            setSavedPosts(saved);
+        } catch (error) {
+            console.error('Error fetching saved posts:', error);
+        }
+    };
+
+    const fetchJourneys = async () => {
+        try {
+            const userJourneys = await sharedJourneyService.getMine();
+            setJourneys(userJourneys);
+        } catch (error) {
+            console.error('Error fetching journeys:', error);
         }
     };
 
@@ -183,7 +218,10 @@ const Profile = () => {
         setEditForm({ 
             username: profile.username, 
             bio: profile.bio || '',
-            avatar: null
+            avatar: null,
+            location: profile.location || '',
+            website: profile.website || '',
+            role: profile.role || ''
         });
         setUploadPreview(profile.avatar);
         setShowEditModal(true);
@@ -222,12 +260,19 @@ const Profile = () => {
             }
             const updates = {
                 username: editForm.username,
-                bio: editForm.bio
+                bio: editForm.bio,
+                location: editForm.location,
+                website: editForm.website,
+                role: editForm.role
             };
             if (editForm.avatar) {
                 updates.avatar = editForm.avatar;
             }
+            console.log('Saving profile updates:', updates);
             await updateProfile(updates);
+            // Refetch profile to ensure all data is fresh
+            await fetchProfile();
+            console.log('Profile after fetch:', profile);
             setShowEditModal(false);
             alert('Profile updated successfully!');
         } catch (error) {
@@ -238,18 +283,107 @@ const Profile = () => {
 
     const updateProfile = async (updates) => {
         try {
+            console.log('Calling updateUser with:', updates);
             const updated = await userService.updateUser(id, updates);
-            setProfile(updated);
-            // alert('Profile updated!');
+            console.log('Response from updateUser:', updated);
+            // Merge updated data with current profile to ensure all fields display
+            const updatedProfile = {
+                ...profile,
+                ...updated
+            };
+            console.log('Merged profile:', updatedProfile);
+            setProfile(updatedProfile);
         } catch (error) {
             console.error('Error updating profile:', error);
             alert('Failed to update profile');
+            throw error;
         }
     };
 
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const renderPostGridItem = (post) => {
+        // Get first image or video
+        const hasImages = post.images && post.images.length > 0;
+        const hasVideos = post.videos && post.videos.length > 0;
+        
+        let mediaUrl = null;
+        let isVideo = false;
+        
+        if (hasImages) {
+            const image = post.images[0];
+            mediaUrl = typeof image === 'object' && image.url ? image.url : image;
+        } else if (hasVideos) {
+            const video = post.videos[0];
+            mediaUrl = typeof video === 'object' && video.url ? video.url : video;
+            isVideo = true;
+        }
+        
+        // Fallback to old post.image or post.media structure if needed
+        if (!mediaUrl) {
+            mediaUrl = post.image || (post.media && post.media[0]) || '/placeholder.jpg';
+            isVideo = mediaUrl?.includes('.mp4') || mediaUrl?.includes('.webm') || mediaUrl?.includes('.mov');
+        }
+        
+        return (
+            <div 
+                key={post._id}
+                className="prof-media-grid-item"
+                onClick={() => openPostModal(post)}
+                onMouseEnter={(e) => {
+                    if (isVideo) {
+                        const video = e.currentTarget.querySelector('video');
+                        if (video) video.play();
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    if (isVideo) {
+                        const video = e.currentTarget.querySelector('video');
+                        if (video) {
+                            video.pause();
+                            video.currentTime = 0;
+                        }
+                    }
+                }}
+            >
+                {/* Media Thumbnail */}
+                {isVideo ? (
+                    <>
+                        <video 
+                            src={mediaUrl} 
+                            className="prof-media-thumbnail"
+                            muted
+                        />
+                        <div className="prof-video-overlay">
+                            <Play size={48} className="prof-play-icon" />
+                        </div>
+                    </>
+                ) : (
+                    <img 
+                        src={mediaUrl} 
+                        alt="Post thumbnail"
+                        className="prof-media-thumbnail"
+                    />
+                )}
+                
+                {/* Hover Stats Overlay */}
+                <div className="prof-media-overlay">
+                    <div className="prof-stats-overlay">
+                        <div className="prof-stat-item">
+                            <Heart size={18} />
+                            <span>{post.likes?.length || post.likeCount || 0}</span>
+                        </div>
+                        <div className="prof-stat-item">
+                            <MessageCircle size={18} />
+                            <span>{post.comments?.length || post.commentCount || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     if (loading) {
@@ -275,44 +409,78 @@ const Profile = () => {
 
     return (
         <div className="profile-page-wrapper">
-            
-            {/* NAV */}
-            <nav className="prof-nav">
-                <Link to="/feed" className="prof-logo">
+            {/* INSTAGRAM-STYLE SIDEBAR */}
+            <aside className="prof-sidebar">
+                {/* Logo */}
+                <Link to="/feed" className="prof-sidebar-logo">
                     <BrandLogo size="md" />
                 </Link>
-                <div className="prof-nav-end">
-                    <button className="prof-icon-btn" title="Messages"><MessageSquare className="w-[18px] h-[18px]" /></button>
-                    <button className="prof-icon-btn" title="Notifications">
-                        <Bell className="w-[18px] h-[18px]" />
-                        <div className="prof-notif-dot"></div>
-                    </button>
+
+                {/* Navigation Menu */}
+                <nav className="prof-sidebar-nav">
+                    <Link to="/feed" className="prof-sidebar-item" title="Home">
+                        <Home size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Home</span>
+                    </Link>
+
+                    <Link to="/feed" className="prof-sidebar-item" title="Explore">
+                        <Compass size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Explore</span>
+                    </Link>
+
+                    <Link to="/journeys" className="prof-sidebar-item" title="Journeys">
+                        <Map size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Journeys</span>
+                    </Link>
+
+                    <Link to={`/profile/${currentUser?._id}?tab=saved`} className="prof-sidebar-item" title="Saved">
+                        <Bookmark size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Saved</span>
+                    </Link>
+
+                    <Link to={`/profile/${currentUser?._id}`} className="prof-sidebar-item prof-sidebar-item--active" title="Profile">
+                        <User size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Profile</span>
+                    </Link>
+
+                    <Link to="/notifications" className="prof-sidebar-item" title="Notifications">
+                        <Bell size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">Notifications</span>
+                    </Link>
+
+                    <Link to="/create-post" className="prof-sidebar-item" title="Create">
+                        <PlusSquare size={24} className="prof-sidebar-icon" />
+                        <span className="prof-sidebar-label">+ Create</span>
+                    </Link>
+                </nav>
+
+                {/* Bottom Section - Theme Toggle & Logout */}
+                <div className="prof-sidebar-bottom">
                     <button 
-                        className="prof-icon-btn" 
-                        title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                        className="prof-sidebar-item-bottom"
                         onClick={toggleTheme}
+                        title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                     >
                         {theme === 'dark' ? (
-                            <Sun className="w-[18px] h-[18px]" />
+                            <Sun size={24} className="prof-sidebar-icon" />
                         ) : (
-                            <Moon className="w-[18px] h-[18px]" />
+                            <Moon size={24} className="prof-sidebar-icon" />
                         )}
+                        <span className="prof-sidebar-label">
+                            {theme === 'dark' ? 'Light' : 'Dark'}
+                        </span>
                     </button>
-                    <div className="prof-nav-divider"></div>
+
                     <button 
-                        className="prof-avatar-sm" 
-                        onClick={() => navigate(`/profile/${currentUser?._id}`)}
-                        title="Go to my profile"
+                        className="prof-sidebar-item-bottom prof-logout-btn"
+                        onClick={handleLogout}
+                        title="Logout"
                     >
-                        {currentUser?.avatar ? (
-                            <img src={currentUser.avatar} alt="Me" />
-                        ) : (
-                            currentUser?.username?.[0]?.toUpperCase() || 'U'
-                        )}
+                        <span className="prof-sidebar-label">Logout</span>
                     </button>
-                    <button onClick={handleLogout} className="ml-2 text-xs text-red-500 hover:underline">Logout</button>
                 </div>
-            </nav>
+            </aside>
+            
 
             <div className="prof-layout">
                 {/* PROFILE HEADER */}
@@ -334,14 +502,18 @@ const Profile = () => {
                             <h1 className="prof-username">{profile.username}</h1>
                             <div className="prof-subtitle">
                                 <span className="prof-handle">@{profile.username.toLowerCase().replace(/\s+/g, '')}</span>
-                                <span className="prof-sep">•</span>
-                                <span className="prof-role">Scrolla creator</span>
+                                {profile.role && profile.role.trim() && (
+                                    <>
+                                        <span className="prof-sep">•</span>
+                                        <span className="prof-role">{profile.role}</span>
+                                    </>
+                                )}
                             </div>
-                            <p className="prof-bio">{profile.bio || 'Sharing moments of mindful scrolling.'} 🕊️ Building things that matter</p>
+                            {profile.bio && profile.bio.trim() && <p className="prof-bio">{profile.bio}</p>}
                             <div className="prof-meta">
-                                <span>📍 Delhi, India</span>
-                                <span>📅 Joined March 2024</span>
-                                <a href="#scrolla" className="prof-link">🔗 scrolla.app</a>
+                                {profile.location && profile.location.trim() && <span>📍 {profile.location}</span>}
+                                {profile.createdAt && <span>📅 Joined {new Date(profile.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</span>}
+                                {profile.website && profile.website.trim() && <a href={profile.website} target="_blank" rel="noopener noreferrer" className="prof-link">🔗 {profile.website}</a>}
                             </div>
                         </div>
                     </div>
@@ -362,10 +534,6 @@ const Profile = () => {
                                 <div className="prof-stat-value">{profile.followingCount || 0}</div>
                                 <div className="prof-stat-label">FOLLOWING</div>
                             </div>
-                            <div className="prof-stat">
-                                <div className="prof-stat-value">87%</div>
-                                <div className="prof-stat-label">AVG MOOD</div>
-                            </div>
                         </div>
 
                         {/* Action Buttons */}
@@ -384,43 +552,6 @@ const Profile = () => {
                             )}
                             <button className="prof-btn prof-btn-secondary">Share</button>
                             <button className="prof-btn prof-btn-icon">...</button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Interest Tags */}
-                <div className="prof-interests">
-                    <span className="prof-interest-tag">🏔️ Mountains</span>
-                    <span className="prof-interest-tag">💻 Tech</span>
-                    <span className="prof-interest-tag">🧘 Mindfulness</span>
-                    <span className="prof-interest-tag">🍵 Chai enjoyer</span>
-                    <span className="prof-interest-tag">🚗 Road trips</span>
-                </div>
-
-                {/* Highlights Section */}
-                <div className="prof-highlights">
-                    <h3 className="prof-highlights-title">HIGHLIGHTS</h3>
-                    <div className="prof-highlights-grid">
-                        <button className="prof-highlight-add">+</button>
-                        <div className="prof-highlight">
-                            <div className="prof-highlight-avatar">🏔️</div>
-                            <span>Mountains</span>
-                        </div>
-                        <div className="prof-highlight">
-                            <div className="prof-highlight-avatar">🧘</div>
-                            <span>Calm</span>
-                        </div>
-                        <div className="prof-highlight">
-                            <div className="prof-highlight-avatar">🚗</div>
-                            <span>Road trips</span>
-                        </div>
-                        <div className="prof-highlight">
-                            <div className="prof-highlight-avatar">☕</div>
-                            <span>Daily chat</span>
-                        </div>
-                        <div className="prof-highlight">
-                            <div className="prof-highlight-avatar">💻</div>
-                            <span>Tech</span>
                         </div>
                     </div>
                 </div>
@@ -453,103 +584,100 @@ const Profile = () => {
                     </button>
                 </div>
 
-                {/* Posts Grid - Media Thumbnails */}
+                {/* Content Grid - Posts, Saved, Journeys */}
                 <div className="prof-posts-grid">
-                    {posts.length === 0 ? (
-                        <div className="prof-empty-state">
-                            <p className="prof-empty-text">
-                                {isOwnProfile ? "You haven't posted anything yet" : "No posts yet"}
-                            </p>
-                            {isOwnProfile && (
-                                <Link to="/create-post" className="prof-btn prof-btn-primary mt-4">
-                                    Create First Post
-                                </Link>
-                            )}
-                        </div>
-                    ) : (
-                        posts.map((post) => {
-                            // Get first image or video
-                            const hasImages = post.images && post.images.length > 0;
-                            const hasVideos = post.videos && post.videos.length > 0;
-                            
-                            let mediaUrl = null;
-                            let isVideo = false;
-                            
-                            if (hasImages) {
-                                const image = post.images[0];
-                                mediaUrl = typeof image === 'object' && image.url ? image.url : image;
-                            } else if (hasVideos) {
-                                const video = post.videos[0];
-                                mediaUrl = typeof video === 'object' && video.url ? video.url : video;
-                                isVideo = true;
-                            }
-                            
-                            // Fallback to old post.image or post.media structure if needed
-                            if (!mediaUrl) {
-                                mediaUrl = post.image || (post.media && post.media[0]) || '/placeholder.jpg';
-                                isVideo = mediaUrl?.includes('.mp4') || mediaUrl?.includes('.webm') || mediaUrl?.includes('.mov');
-                            }
-                            
-                            return (
-                                <div 
-                                    key={post._id}
-                                    className="prof-media-grid-item"
-                                    onClick={() => openPostModal(post)}
-                                    onMouseEnter={(e) => {
-                                        if (isVideo) {
-                                            const video = e.currentTarget.querySelector('video');
-                                            if (video) video.play();
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (isVideo) {
-                                            const video = e.currentTarget.querySelector('video');
-                                            if (video) {
-                                                video.pause();
-                                                video.currentTime = 0;
-                                            }
-                                        }
-                                    }}
-                                >
-                                    {/* Media Thumbnail */}
-                                    {isVideo ? (
-                                        <>
-                                            <video 
-                                                src={mediaUrl} 
-                                                className="prof-media-thumbnail"
-                                                muted
-                                            />
-                                            <div className="prof-video-overlay">
-                                                <Play size={48} className="prof-play-icon" />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <img 
-                                            src={mediaUrl} 
-                                            alt="Post thumbnail"
-                                            className="prof-media-thumbnail"
-                                        />
+                    {activeTab === 'posts' && (
+                        <>
+                            {posts.length === 0 ? (
+                                <div className="prof-empty-state">
+                                    <p className="prof-empty-text">
+                                        {isOwnProfile ? "You haven't posted anything yet" : "No posts yet"}
+                                    </p>
+                                    {isOwnProfile && (
+                                        <Link to="/create-post" className="prof-btn prof-btn-primary mt-4">
+                                            Create First Post
+                                        </Link>
                                     )}
-                                    
-                                    {/* Hover Stats Overlay */}
-                                    <div className="prof-media-overlay">
-                                        <div className="prof-stats-overlay">
-                                            <div className="prof-stat-item">
-                                                <Heart size={18} />
-                                                <span>{post.likes?.length || post.likeCount || 0}</span>
-                                            </div>
-                                            <div className="prof-stat-item">
-                                                <MessageCircle size={18} />
-                                                <span>{post.comments?.length || post.commentCount || 0}</span>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-                            );
-                        })
+                            ) : (
+                                posts.map((post) => renderPostGridItem(post))
+                            )}
+                        </>
+                    )}
+
+                    {activeTab === 'saved' && (
+                        <>
+                            {!isOwnProfile ? (
+                                <div className="prof-empty-state">
+                                    <p className="prof-empty-text">Saved posts are private</p>
+                                </div>
+                            ) : savedPosts.length === 0 ? (
+                                <div className="prof-empty-state">
+                                    <p className="prof-empty-text">You haven't saved any posts yet</p>
+                                </div>
+                            ) : (
+                                savedPosts.map((post) => renderPostGridItem(post))
+                            )}
+                        </>
+                    )}
+
+                    {activeTab === 'journeys' && (
+                        <>
+                            {!isOwnProfile ? (
+                                <div className="prof-empty-state">
+                                    <p className="prof-empty-text">Journeys are private</p>
+                                </div>
+                            ) : journeys.length === 0 ? (
+                                <div className="prof-empty-state">
+                                    <p className="prof-empty-text">You haven't joined or created any journeys yet</p>
+                                    <Link to="/journeys" className="prof-btn prof-btn-primary mt-4">
+                                        Explore Journeys
+                                    </Link>
+                                </div>
+                            ) : (
+                                journeys.map((journey) => (
+                                    <div key={journey._id} className="prof-journey-card" style={{
+                                        background: '#2C2B28',
+                                        border: '1px solid #E4A87C',
+                                        borderRadius: '12px',
+                                        padding: '1.5rem',
+                                        cursor: 'pointer',
+                                        transition: 'all .3s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.75rem',
+                                        aspectRatio: '1',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{ fontSize: '0.85rem', color: '#E4A87C', fontWeight: 600 }}>
+                                            {journey.isActive ? '🔴 LIVE' : journey.closedAt ? '✓ ENDED' : '⏰ CLOSED'}
+                                        </div>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#F4F1ED', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {journey.title}
+                                        </h3>
+                                        <p style={{ fontSize: '0.9rem', color: '#A8A5A0', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
+                                            {journey.prompt}
+                                        </p>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#A8A5A0', marginTop: '0.5rem' }}>
+                                            <span>👥 {journey.memberCount}</span>
+                                            <span>⏱️ {Math.ceil((new Date(journey.deadline) - new Date()) / (1000 * 60 * 60))}h</span>
+                                        </div>
+                                        <Link to={`/journeys/${journey._id}`} className="prof-btn prof-btn-primary" style={{ marginTop: 'auto', textAlign: 'center', textDecoration: 'none', fontSize: '0.9rem' }}>
+                                            View →
+                                        </Link>
+                                    </div>
+                                ))
+                            )}
+                        </>
+                    )}
+
+                    {activeTab === 'mood' && (
+                        <MoodLog isOwnProfile={isOwnProfile} />
                     )}
                 </div>
             </div>
+
+            {/* Helper function to render post grid items */}
 
             {/* INSTAGRAM-STYLE MEDIA VIEWER MODAL */}
             {expandedPost && (
@@ -804,6 +932,42 @@ const Profile = () => {
                                     onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                                     placeholder="Tell us about yourself..."
                                     rows="4"
+                                />
+                            </div>
+
+                            {/* Location Section */}
+                            <div className="prof-modal-section">
+                                <label className="prof-modal-label">Location</label>
+                                <input
+                                    type="text"
+                                    className="prof-modal-input"
+                                    value={editForm.location}
+                                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                                    placeholder="Enter your location (e.g., Delhi, India)"
+                                />
+                            </div>
+
+                            {/* Website Section */}
+                            <div className="prof-modal-section">
+                                <label className="prof-modal-label">Website</label>
+                                <input
+                                    type="url"
+                                    className="prof-modal-input"
+                                    value={editForm.website}
+                                    onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                                    placeholder="https://yourwebsite.com"
+                                />
+                            </div>
+
+                            {/* Role Section */}
+                            <div className="prof-modal-section">
+                                <label className="prof-modal-label">Role / Profession</label>
+                                <input
+                                    type="text"
+                                    className="prof-modal-input"
+                                    value={editForm.role}
+                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                                    placeholder="e.g., Designer, Developer, Creator"
                                 />
                             </div>
 

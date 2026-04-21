@@ -14,6 +14,8 @@ import commentRoutes from './routes/commentRoutes.js';
 import focusSessionRoutes from './routes/focusSessionRoutes.js';
 import sharedJourneyRoutes from './routes/sharedJourneyRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import moodRoutes from './routes/moodRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -69,6 +71,8 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/sessions', focusSessionRoutes);  // Focus session timer (was /api/journeys)
 app.use('/api/journeys', sharedJourneyRoutes);  // New shared Journey feature
 app.use('/api/upload', uploadRoutes);
+app.use('/api/moods', moodRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

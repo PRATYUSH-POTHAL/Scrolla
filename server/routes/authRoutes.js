@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
+import { verifyGoogleToken } from '../utils/googleAuth.js';
 
 const router = express.Router();
 
@@ -81,6 +82,14 @@ router.post('/login', authLimiter, [
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        // Check if user has a password (email/password signup) or only Google OAuth
+        if (!user.password) {
+            return res.status(401).json({ 
+                message: 'This account was created with Google OAuth. Please use the "Continue with Google" button to login.',
+                loginMethod: 'google_only'
+            });
+        }
+
         // Check password
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
@@ -100,6 +109,170 @@ router.post('/login', authLimiter, [
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ message: 'Server error during login' });
+    }
+});
+
+// @route   POST /api/auth/google
+// @desc    Google OAuth login/register with account linking detection
+// @access  Public
+router.post('/google', authLimiter, async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ message: 'Google token is required' });
+        }
+
+        // Verify Google token
+        const verification = await verifyGoogleToken(token);
+
+        if (!verification.success) {
+            return res.status(401).json({ message: verification.error });
+        }
+
+        const { googleId, email, name, picture } = verification.data;
+
+        // Check if user exists with this googleId (already linked)
+        let user = await User.findOne({ googleId });
+        
+        if (user) {
+            // User already has Google linked - direct login
+            const jwtToken = generateToken(user._id);
+            return res.json({
+                status: 'success',
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar,
+                bio: user.bio,
+                kidsMode: user.kidsMode,
+                token: jwtToken
+            });
+        }
+
+        // Check if email exists (potential account linking scenario)
+        user = await User.findOne({ email });
+
+        if (user) {
+            // User exists with this email but no googleId
+            // Return pending_link status with user data for confirmation
+            return res.status(200).json({
+                status: 'pending_link',
+                message: 'Account found. Confirm to link Google account.',
+                existingUser: {
+                    _id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    avatar: user.avatar,
+                    createdAt: user.createdAt
+                },
+                googleData: {
+                    googleId,
+                    name,
+                    picture,
+                    email
+                },
+                // Store in session-like object on frontend to confirm later
+                tempToken: Buffer.from(JSON.stringify({ googleId, email, name, picture })).toString('base64')
+            });
+        }
+
+        // No existing user - create new account
+        let username = name
+            .toLowerCase()
+            .replace(/\s+/g, '.')
+            .replace(/[^\w.-]/g, '');
+
+        // Check if username already exists
+        let usernameExists = await User.findOne({ username });
+        if (usernameExists) {
+            username = `${username}.${Date.now()}`;
+        }
+
+        user = await User.create({
+            username,
+            email,
+            googleId,
+            avatar: picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        });
+
+        // Generate JWT token
+        const jwtToken = generateToken(user._id);
+
+        res.json({
+            status: 'success',
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            avatar: user.avatar,
+            bio: user.bio,
+            kidsMode: user.kidsMode,
+            token: jwtToken
+        });
+    } catch (error) {
+        console.error('Google auth error:', error);
+        res.status(500).json({ message: 'Server error during Google authentication' });
+    }
+});
+
+// @route   POST /api/auth/google/confirm-link
+// @desc    Confirm linking existing account with Google
+// @access  Public
+router.post('/google/confirm-link', authLimiter, async (req, res) => {
+    try {
+        const { userId, token } = req.body;
+
+        if (!userId || !token) {
+            return res.status(400).json({ message: 'Missing userId or token' });
+        }
+
+        // Verify Google token
+        const verification = await verifyGoogleToken(token);
+
+        if (!verification.success) {
+            return res.status(401).json({ message: verification.error });
+        }
+
+        const { googleId, picture } = verification.data;
+
+        // First, get the user to check avatar
+        const existingUser = await User.findById(userId);
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Prepare update object
+        const updateData = { googleId };
+        
+        // Update avatar only if picture is provided and current avatar is default (dicebear)
+        if (picture && existingUser.avatar && existingUser.avatar.includes('dicebear')) {
+            updateData.avatar = picture;
+        }
+
+        // Update user with googleId (and optionally avatar)
+        const user = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true }
+        );
+
+        // Generate JWT token
+        const jwtToken = generateToken(user._id);
+
+        res.json({
+            status: 'success',
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            avatar: user.avatar,
+            bio: user.bio,
+            kidsMode: user.kidsMode,
+            token: jwtToken,
+            message: 'Google account linked successfully'
+        });
+    } catch (error) {
+        console.error('Confirm link error:', error);
+        res.status(500).json({ message: 'Server error confirming account link' });
     }
 });
 

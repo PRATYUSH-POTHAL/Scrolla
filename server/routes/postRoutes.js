@@ -115,6 +115,32 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
     }
 });
 
+// @route   GET /api/posts/saved/list
+// @desc    Get posts saved by current user
+// @access  Private
+router.get('/saved/list', protect, async (req, res) => {
+    try {
+        const savedPosts = await SavedPost.find({ user: req.user._id })
+            .populate({
+                path: 'post',
+                populate: { path: 'author', select: 'username avatar bio' }
+            })
+            .sort({ createdAt: -1 });
+
+        // Filter out null posts (deleted posts)
+        const posts = savedPosts
+            .map(sp => sp.post)
+            .filter(post => post !== null);
+        
+        const postsWithInteractions = await attachUserInteractions(posts, req.user._id);
+
+        res.json(postsWithInteractions);
+    } catch (error) {
+        console.error('Get saved posts error:', error);
+        res.status(500).json({ message: 'Server error fetching saved posts' });
+    }
+});
+
 // @route   GET /api/posts/:id
 // @desc    Get single post by ID
 // @access  Public

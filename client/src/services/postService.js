@@ -41,6 +41,11 @@ export const postService = {
         return response.data;
     },
 
+    getSavedPosts: async () => {
+        const response = await api.get('/posts/saved/list');
+        return response.data;
+    },
+
     hidePost: async (id) => {
         const response = await api.post(`/posts/${id}/hide`);
         return response.data;

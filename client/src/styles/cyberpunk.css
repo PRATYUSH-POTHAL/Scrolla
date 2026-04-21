@@ -2,7 +2,7 @@
    CYBERPUNK DESIGN SYSTEM - Design Tokens & Global Styles
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ─────────────────────────────────────────────────────────────────────────
    DARK MODE (DEFAULT) - Full Cyberpunk Aesthetic
@@ -16,6 +16,11 @@
   --cyber-border: #1f1f2e;
   --cyber-text: #e0e0e0;
   --cyber-muted: #888899;
+  
+  /* ░ Typography ░ */
+  --cyber-font-heading: 'Sora', sans-serif;
+  --cyber-font-body: 'Inter', sans-serif;
+  --cyber-font-mono: 'JetBrains Mono', monospace;
   
   /* ░ Neon Accents - Electric Dreams ░ */
   --cyber-neon-green: #00ff88;      /* Primary - Matrix-inspired */
@@ -45,6 +50,11 @@
   --cyber-text: #1a1a2e;
   --cyber-muted: #666680;
   
+  /* ░ Typography (Light Mode) ░ */
+  --cyber-font-heading: 'Sora', sans-serif;
+  --cyber-font-body: 'Inter', sans-serif;
+  --cyber-font-mono: 'JetBrains Mono', monospace;
+  
   /* Adapted neon colors for light backgrounds */
   --cyber-neon-green: #00a854;      /* Darker, readable */
   --cyber-neon-pink: #d60084;       /* Darker, readable */
@@ -65,7 +75,7 @@
 body, html {
   background-color: var(--cyber-bg);
   color: var(--cyber-text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--cyber-font-body);
   transition: var(--cyber-transition);
 }
 
@@ -308,8 +318,8 @@ body::after {
    ════════════════════════════════════════════════════════════════════════ */
 
 .cyber-heading {
-  font-family: 'Orbitron', monospace;
-  font-weight: 900;
+  font-family: var(--cyber-font-heading);
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--cyber-neon-green);

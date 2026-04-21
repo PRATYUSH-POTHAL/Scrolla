@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { MoodFilterProvider } from './context/MoodFilterContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -11,6 +12,7 @@ import CreatePost from './pages/CreatePost';
 import Profile from './pages/Profile';
 import JourneyDiscover from './pages/JourneyDiscover';
 import JourneyDetail from './pages/JourneyDetail';
+import Notifications from './pages/Notifications';
 import './styles/defi-theme.css';
 
 function App() {
@@ -18,6 +20,7 @@ function App() {
         <AuthProvider>
             <AppProvider>
                 <ThemeProvider>
+                <MoodFilterProvider>
                     <Router>
                     <div className="min-h-screen">
                         <Toaster position="top-right" />
@@ -94,6 +97,15 @@ function App() {
                                 }
                             />
 
+                            <Route
+                                path="/notifications"
+                                element={
+                                    <ProtectedRoute>
+                                        <Notifications />
+                                    </ProtectedRoute>
+                                }
+                            />
+
                             {/* Default Redirect */}
                             <Route path="/explore" element={<Navigate to="/feed" replace />} />
                             <Route path="/saved" element={<Navigate to="/feed" replace />} />
@@ -102,6 +114,7 @@ function App() {
                         </Routes>
                     </div>
                 </Router>
+                </MoodFilterProvider>
                 </ThemeProvider>
             </AppProvider>
         </AuthProvider>

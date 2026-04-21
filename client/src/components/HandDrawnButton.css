@@ -1,0 +1,24 @@
+/* Hand-Drawn Button Styles */
+
+.hand-drawn-button {
+  cursor: pointer;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hand-drawn-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Prevent button text from being selectable */
+.hand-drawn-button,
+.hand-drawn-button * {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Ensure smooth transitions */
+.hand-drawn-button {
+  will-change: transform, box-shadow, background-color;
+}

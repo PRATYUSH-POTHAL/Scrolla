@@ -1,0 +1,16 @@
+/* Hand-Drawn Card Styles */
+
+.hand-drawn-card {
+  position: relative;
+  overflow: visible; /* Allow decorations to extend outside */
+}
+
+.hand-drawn-card:hover {
+  transform: rotate(-1deg) translateY(-2px);
+  box-shadow: 6px 6px 0px 0px rgba(45, 45, 45, 0.15);
+}
+
+.hand-drawn-card.tape,
+.hand-drawn-card.tack {
+  margin-top: 16px; /* Space for decoration */
+}

@@ -1,0 +1,304 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MOOD FEED BANNER — Inline mood-based card at top of feed
+   Three scenarios: heavy mood (A), positive mood (B), not logged (C)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Fade-in keyframe ── */
+@keyframes moodBannerFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Skeleton shimmer ── */
+@keyframes moodBannerShimmer {
+    0%   { background-position: -200px 0; }
+    100% { background-position: 400px 0; }
+}
+
+/* ══════════════════════════════════════
+   Loading Skeleton
+   ══════════════════════════════════════ */
+.mood-banner-skeleton {
+    background: #1A1814;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mood-banner-skeleton-line {
+    height: 14px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #2a2520 25%, #35302a 50%, #2a2520 75%);
+    background-size: 400px 100%;
+    animation: moodBannerShimmer 1.4s ease infinite;
+}
+
+.mood-banner-skeleton-line.wide  { width: 80%; }
+.mood-banner-skeleton-line.narrow { width: 50%; }
+
+/* Light theme skeleton */
+[data-theme="light"] .mood-banner-skeleton {
+    background: #f5f3f0;
+}
+
+[data-theme="light"] .mood-banner-skeleton-line {
+    background: linear-gradient(90deg, #e8e5e0 25%, #f0ece8 50%, #e8e5e0 75%);
+    background-size: 400px 100%;
+}
+
+/* ══════════════════════════════════════
+   Base Banner
+   ══════════════════════════════════════ */
+.mood-banner {
+    background: #1A1814;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 300ms ease, transform 300ms ease;
+    position: relative;
+}
+
+.mood-banner--visible {
+    opacity: 1;
+    transform: translateY(0);
+    animation: moodBannerFadeIn 300ms ease forwards;
+}
+
+/* Light theme base */
+[data-theme="light"] .mood-banner {
+    background: #faf8f5;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ══════════════════════════════════════
+   Scenario A — Heavy Mood (orange accent)
+   ══════════════════════════════════════ */
+.mood-banner--heavy {
+    border-left: 3px solid #E07A1F;
+}
+
+/* ══════════════════════════════════════
+   Scenario B — Positive Mood (green accent)
+   ══════════════════════════════════════ */
+.mood-banner--positive {
+    border-left: 3px solid #4CAF50;
+}
+
+/* ══════════════════════════════════════
+   Scenario C — Not Logged (neutral, no border)
+   ══════════════════════════════════════ */
+.mood-banner--neutral {
+    border-left: none;
+}
+
+/* ══════════════════════════════════════
+   Content Layout
+   ══════════════════════════════════════ */
+.mood-banner__content {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.mood-banner__text {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--defi-fg, #e8e4de);
+}
+
+[data-theme="light"] .mood-banner__text {
+    color: #2c2b28;
+}
+
+.mood-banner__text p {
+    margin: 0;
+    padding-top: 1px;
+}
+
+.mood-banner__text strong {
+    color: var(--defi-orange-primary, #E07A1F);
+    font-weight: 600;
+}
+
+[data-theme="light"] .mood-banner__text strong {
+    color: #c06a1a;
+}
+
+.mood-banner__emoji {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: -1px;
+}
+
+/* ══════════════════════════════════════
+   Dismiss Button (✕)
+   ══════════════════════════════════════ */
+.mood-banner__dismiss {
+    background: none;
+    border: none;
+    color: var(--defi-muted, #9a9590);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.mood-banner__dismiss:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--defi-fg, #e8e4de);
+}
+
+[data-theme="light"] .mood-banner__dismiss:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #2c2b28;
+}
+
+/* ══════════════════════════════════════
+   Mood Chip Row (Scenario A)
+   ══════════════════════════════════════ */
+.mood-banner__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .mood-banner__chips {
+    border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.mood-banner__chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--defi-muted, #9a9590);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.mood-banner__chip:hover {
+    background: rgba(224, 122, 31, 0.12);
+    border-color: rgba(224, 122, 31, 0.3);
+    color: #E07A1F;
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .mood-banner__chip {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #666;
+}
+
+[data-theme="light"] .mood-banner__chip:hover {
+    background: rgba(224, 122, 31, 0.1);
+    border-color: rgba(224, 122, 31, 0.3);
+    color: #c06a1a;
+}
+
+/* ══════════════════════════════════════
+   Action Buttons (Scenario C)
+   ══════════════════════════════════════ */
+.mood-banner__actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .mood-banner__actions {
+    border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.mood-banner__btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    border: none;
+    letter-spacing: 0.02em;
+}
+
+/* Primary button — brand orange */
+.mood-banner__btn--primary {
+    background: linear-gradient(135deg, #E07A1F, #d4711a);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(224, 122, 31, 0.25);
+}
+
+.mood-banner__btn--primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(224, 122, 31, 0.35);
+}
+
+/* Secondary button — ghost style */
+.mood-banner__btn--secondary {
+    background: transparent;
+    color: var(--defi-muted, #9a9590);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mood-banner__btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--defi-fg, #e8e4de);
+}
+
+[data-theme="light"] .mood-banner__btn--secondary {
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #666;
+}
+
+[data-theme="light"] .mood-banner__btn--secondary:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: #2c2b28;
+}
+
+/* ══════════════════════════════════════
+   Responsive
+   ══════════════════════════════════════ */
+@media (max-width: 600px) {
+    .mood-banner {
+        padding: 12px 14px;
+    }
+
+    .mood-banner__text {
+        font-size: 12px;
+    }
+
+    .mood-banner__chips {
+        gap: 4px;
+    }
+
+    .mood-banner__chip {
+        font-size: 10px;
+        padding: 4px 10px;
+    }
+}
