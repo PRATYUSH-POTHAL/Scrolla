@@ -88,19 +88,37 @@ const AuthPage = () => {
         const hash = window.location.hash;
         const search = window.location.search;
         let accessToken = null;
+        let error = null;
 
+        // 1. Check for access_token in hash (standard for implicit flow)
         if (hash && hash.includes('access_token=')) {
             const params = new URLSearchParams(hash.replace('#', ''));
             accessToken = params.get('access_token');
-        } else if (search && search.includes('access_token=')) {
+        } 
+        // 2. Check for access_token in search (fallback)
+        else if (search && search.includes('access_token=')) {
             const params = new URLSearchParams(search);
             accessToken = params.get('access_token');
         }
+        // 3. Check for errors
+        else if (hash && hash.includes('error=')) {
+            const params = new URLSearchParams(hash.replace('#', ''));
+            error = params.get('error');
+        } else if (search && search.includes('error=')) {
+            const params = new URLSearchParams(search);
+            error = params.get('error');
+        }
 
         if (accessToken) {
+            console.log('Google redirect success, processing token...');
             // Clean URL immediately so it doesn't look messy
             window.history.replaceState(null, '', window.location.pathname);
             handleGoogleSuccess({ credential: accessToken });
+        } else if (error) {
+            console.error('Google redirect error:', error);
+            setError(`Google login failed: ${error}`);
+            toast.error('Google login failed. Please try again.');
+            window.history.replaceState(null, '', window.location.pathname);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -265,18 +283,18 @@ const AuthPage = () => {
         });
     };
 
-    const handleGoogleError = () => {
-        toast.error('Google login failed');
+    const handleGoogleLoginClick = () => {
+        // Build the manual OAuth 2.0 URL to completely bypass the GIS library
+        // This prevents AdGuard from blocking the script or popup
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '918792303634-1vv2caqsl5m49k7tn5vqvgecvpi8vca1.apps.googleusercontent.com';
+        const redirectUri = `${window.location.origin}/login`;
+        const scope = 'email profile';
+        const responseType = 'token';
+        
+        const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&prompt=select_account`;
+        
+        window.location.href = url;
     };
-
-    const loginGoogle = useGoogleLogin({
-        onSuccess: (tokenResponse) => {
-            handleGoogleSuccess({ credential: tokenResponse.access_token });
-        },
-        onError: handleGoogleError,
-        ux_mode: 'redirect',
-        redirect_uri: `${window.location.origin}/login`,
-    });
 
     return (
         <div className="auth-page-wrapper">
@@ -394,7 +412,7 @@ const AuthPage = () => {
                                     <button 
                                         type="button" 
                                         className="auth-custom-google-btn" 
-                                        onClick={() => loginGoogle()}
+                                        onClick={handleGoogleLoginClick}
                                     >
                                         <FcGoogle size={22} />
                                         <span>Continue with Google</span>
@@ -485,7 +503,7 @@ const AuthPage = () => {
                                     <button 
                                         type="button" 
                                         className="auth-custom-google-btn" 
-                                        onClick={() => loginGoogle()}
+                                        onClick={handleGoogleLoginClick}
                                     >
                                         <FcGoogle size={22} />
                                         <span>Continue with Google</span>
