@@ -11,7 +11,7 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <GoogleOAuthProvider clientId={googleClientId} use_fedcm_for_prompt={true}>
+        <GoogleOAuthProvider clientId={googleClientId}>
             <Toaster
                 position="top-center"
                 toastOptions={{
