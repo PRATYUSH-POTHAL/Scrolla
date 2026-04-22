@@ -216,7 +216,7 @@ const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp, onFo
 
     const { isFollowing, toggleFollow: handleFollow, loading: followLoading } = useFollow(isFollowingProp, post?.author?._id, onFollowToggle);
     const { liked, likeCount, toggleLike: handleLike } = useLike(post?.isLiked, post?.likeCount, post?._id);
-    const { handleSave, handleHide, handleReport, handleDelete } = usePostActions(post?._id, onUpdate, onDelete);
+    const { isSaved, handleSave, handleHide, handleReport, handleDelete } = usePostActions(post?._id, post?.isSaved, onUpdate, onDelete);
 
     // Get mood color based on mood ID
     const getMoodColor = () => {
@@ -380,6 +380,7 @@ const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp, onFo
                     {showMenu && (
                         <ThreeDotMenu
                             isOwnPost={isOwnPost}
+                            isSaved={isSaved}
                             onSave={handleSave}
                             onHide={handleHide}
                             onReport={handleReport}

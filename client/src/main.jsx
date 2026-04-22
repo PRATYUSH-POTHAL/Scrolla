@@ -5,6 +5,8 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.jsx';
 import './index.css';
 
+import { QueryProvider } from './context/QueryProvider.jsx';
+
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -17,7 +19,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     style: { borderRadius: '12px', background: '#333', color: '#fff' }
                 }}
             />
-            <App />
+            <QueryProvider>
+                <App />
+            </QueryProvider>
         </GoogleOAuthProvider>
     </React.StrictMode>
 );

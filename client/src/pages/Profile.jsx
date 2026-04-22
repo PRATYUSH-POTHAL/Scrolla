@@ -194,24 +194,30 @@ const Profile = () => {
     };
 
     const handleFollow = async () => {
+        const prevFollowing = isFollowing;
+        const prevFollowerCount = profile.followerCount;
+        
+        // Optimistic UI Update
+        setIsFollowing(!prevFollowing);
+        setProfile({
+            ...profile,
+            followerCount: prevFollowing ? prevFollowerCount - 1 : prevFollowerCount + 1
+        });
+
         try {
-            if (isFollowing) {
+            if (prevFollowing) {
                 await userService.unfollowUser(id);
-                setIsFollowing(false);
-                setProfile({
-                    ...profile,
-                    followerCount: profile.followerCount - 1
-                });
             } else {
                 await userService.followUser(id);
-                setIsFollowing(true);
-                setProfile({
-                    ...profile,
-                    followerCount: profile.followerCount + 1
-                });
             }
         } catch (error) {
             console.error('Error following/unfollowing:', error);
+            // Roll back on failure
+            setIsFollowing(prevFollowing);
+            setProfile({
+                ...profile,
+                followerCount: prevFollowerCount
+            });
             alert('Failed to update follow status');
         }
     };

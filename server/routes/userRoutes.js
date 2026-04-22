@@ -5,6 +5,8 @@ import Follow from '../models/Follow.js';
 import Notification from '../models/Notification.js';
 import { protect } from '../middleware/auth.js';
 import { optionalAuth } from '../middleware/optionalAuth.js';
+import { CACHE_KEYS, cacheGet, cacheSet, cacheClear } from '../cache/index.js';
+import { publisher, CHANNELS } from '../cache/pubsub.js';
 
 const router = express.Router();
 
@@ -13,6 +15,9 @@ const router = express.Router();
 // @access  Private
 router.get('/suggested', protect, async (req, res) => {
     try {
+        const cacheKey = CACHE_KEYS.SUGGESTED_USERS(req.user._id.toString());
+        const cachedData = await cacheGet(cacheKey);
+        if (cachedData) return res.json(cachedData);
         // Find users the current user is already following
         const followingRecords = await Follow.find({ follower: req.user._id }).select('followee');
         const followingIds = followingRecords.map(f => f.followee.toString());
@@ -28,13 +33,22 @@ router.get('/suggested', protect, async (req, res) => {
         .lean();
 
         // Get follower count for each suggested user
-        const result = await Promise.all(users.map(async (u) => {
-            const followerCount = await Follow.countDocuments({ followee: u._id });
-            return {
-                ...u,
-                followerCount
-            };
+        const userIds = users.map(u => u._id);
+        const followerCounts = await Follow.aggregate([
+            { $match: { followee: { $in: userIds } } },
+            { $group: { _id: '$followee', count: { $sum: 1 } } }
+        ]);
+        
+        const countMap = Object.fromEntries(
+            followerCounts.map(f => [f._id.toString(), f.count])
+        );
+        
+        const result = users.map(u => ({
+            ...u,
+            followerCount: countMap[u._id.toString()] || 0
         }));
+
+        await cacheSet(cacheKey, result, 300); // cache for 5 minutes
 
         res.json(result);
     } catch (error) {
@@ -48,8 +62,15 @@ router.get('/suggested', protect, async (req, res) => {
 // @access  Public
 router.get('/:id', optionalAuth, async (req, res) => {
     try {
+        const cacheKey = CACHE_KEYS.USER_PROFILE(req.params.id);
+        if (!req.user) { // Only cache for public requests to avoid caching `isFollowing` state globally
+            const cachedData = await cacheGet(cacheKey);
+            if (cachedData) return res.json(cachedData);
+        }
+
         const user = await User.findById(req.params.id)
-            .select('-password -savedPosts -hiddenPosts -reportedPosts');
+            .select('-password -savedPosts -hiddenPosts -reportedPosts')
+            .lean();
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -61,12 +82,16 @@ router.get('/:id', optionalAuth, async (req, res) => {
             req.user ? Follow.exists({ follower: req.user._id, followee: user._id }) : Promise.resolve(null)
         ]);
 
-        res.json({
-            ...user.toJSON(),
+        const result = {
+            ...user,
             followerCount,
             followingCount,
             isFollowing: !!isFollowingRecord
-        });
+        };
+
+        if (!req.user) await cacheSet(cacheKey, result, 60);
+
+        res.json(result);
     } catch (error) {
         console.error('Get user error:', error);
         res.status(500).json({ message: 'Server error fetching user' });
@@ -110,6 +135,10 @@ router.put('/:id', protect, [
             updateFields,
             { new: true, runValidators: true }
         ).select('-password');
+
+        await cacheClear(`user:${req.params.id}`);
+        await cacheClear('feed:*'); // Bust feed if avatar/username changed
+        publisher.publish(CHANNELS.USER_UPDATED, JSON.stringify({ userId: req.params.id }));
 
         res.json(user);
     } catch (error) {
@@ -157,6 +186,9 @@ router.post('/:id/follow', protect, async (req, res) => {
             { upsert: true, new: true }
         );
 
+        await cacheClear(`user:${req.params.id}`);
+        await cacheClear(`suggested:${req.user._id.toString()}`);
+
         res.json({ message: 'Successfully followed user' });
     } catch (error) {
         console.error('Follow error:', error);
@@ -185,6 +217,9 @@ router.delete('/:id/follow', protect, async (req, res) => {
             type: 'new_follower'
         });
 
+        await cacheClear(`user:${req.params.id}`);
+        await cacheClear(`suggested:${req.user._id.toString()}`);
+
         res.json({ message: 'Successfully unfollowed user' });
     } catch (error) {
         console.error('Unfollow error:', error);
@@ -199,7 +234,8 @@ router.get('/:id/followers', async (req, res) => {
     try {
         const followers = await Follow.find({ followee: req.params.id })
             .populate('follower', 'username avatar bio')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         res.json(followers.map(f => f.follower).filter(Boolean));
     } catch (error) {
@@ -215,7 +251,8 @@ router.get('/:id/following', async (req, res) => {
     try {
         const following = await Follow.find({ follower: req.params.id })
             .populate('followee', 'username avatar bio')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         res.json(following.map(f => f.followee).filter(Boolean));
     } catch (error) {

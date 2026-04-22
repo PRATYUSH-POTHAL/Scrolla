@@ -11,6 +11,8 @@ import SharedJourney from '../models/SharedJourney.js';
 import JourneyMember from '../models/JourneyMember.js';
 import { protect } from '../middleware/auth.js';
 import { optionalAuth } from '../middleware/optionalAuth.js';
+import { CACHE_KEYS, cacheGet, cacheSet, cacheClear } from '../cache/index.js';
+import { publisher, CHANNELS } from '../cache/pubsub.js';
 
 const router = express.Router();
 
@@ -27,16 +29,26 @@ const attachUserInteractions = async (posts, userId) => {
     const plainPosts = postsList.map(p => p.toJSON ? p.toJSON() : p);
 
     if (!userId) {
-        plainPosts.forEach(p => p.isLiked = false);
+        plainPosts.forEach(p => {
+            p.isLiked = false;
+            p.isSaved = false;
+        });
         return isArray ? plainPosts : plainPosts[0];
     }
 
     const postIds = plainPosts.map(p => p._id);
-    const userLikes = await Like.find({ user: userId, post: { $in: postIds } });
+    
+    const [userLikes, userSaves] = await Promise.all([
+        Like.find({ user: userId, post: { $in: postIds } }),
+        SavedPost.find({ user: userId, post: { $in: postIds } })
+    ]);
+    
     const likedPostIds = new Set(userLikes.map(l => l.post.toString()));
+    const savedPostIds = new Set(userSaves.map(s => s.post.toString()));
 
     plainPosts.forEach(p => {
         p.isLiked = likedPostIds.has(p._id.toString());
+        p.isSaved = savedPostIds.has(p._id.toString());
     });
 
     return isArray ? plainPosts : plainPosts[0];
@@ -47,7 +59,14 @@ const attachUserInteractions = async (posts, userId) => {
 // @access  Public (but auth-aware for following filter)
 router.get('/', optionalAuth, async (req, res) => {
     try {
-        const { mood, kidSafe, following, limit = 20, page = 1 } = req.query;
+        const { mood = 'all', kidSafe = 'false', following = 'false', limit = 20, page = 1 } = req.query;
+
+        // Try Cache First (only for non-following public feeds to avoid caching personalized data globally)
+        const cacheKey = following === 'false' && !req.user ? CACHE_KEYS.FEED(page, mood, kidSafe) : null;
+        if (cacheKey) {
+            const cachedData = await cacheGet(cacheKey);
+            if (cachedData) return res.json(cachedData);
+        }
 
         // Build query
         const query = { journey: null };
@@ -79,18 +98,23 @@ router.get('/', optionalAuth, async (req, res) => {
             .populate('author', 'username avatar bio')
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
-            .skip(skip);
+            .skip(skip)
+            .lean();
 
         const postsWithInteractions = await attachUserInteractions(posts, req.user?._id);
 
         const total = await Post.countDocuments(query);
 
-        res.json({
+        const result = {
             posts: postsWithInteractions,
             total,
             page: parseInt(page),
             pages: Math.ceil(total / parseInt(limit))
-        });
+        };
+
+        if (cacheKey) await cacheSet(cacheKey, result);
+
+        res.json(result);
     } catch (error) {
         console.error('Get posts error:', error);
         res.status(500).json({ message: 'Server error fetching posts' });
@@ -104,7 +128,8 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
     try {
         const posts = await Post.find({ author: req.params.userId, journey: null })
             .populate('author', 'username avatar bio')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const postsWithInteractions = await attachUserInteractions(posts, req.user?._id);
 
@@ -125,7 +150,8 @@ router.get('/saved/list', protect, async (req, res) => {
                 path: 'post',
                 populate: { path: 'author', select: 'username avatar bio' }
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         // Filter out null posts (deleted posts)
         const posts = savedPosts
@@ -151,7 +177,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
             .populate({
                 path: 'comments',
                 populate: { path: 'author', select: 'username avatar' }
-            });
+            })
+            .lean();
 
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
@@ -223,6 +250,10 @@ router.post('/', protect, [
             .populate('author', 'username avatar')
             .lean();
 
+        // Bust all feed caches
+        await cacheClear('feed:*');
+        publisher.publish(CHANNELS.POST_CREATED, JSON.stringify({ postId: post._id }));
+
         res.status(201).json(populatedPost);
     } catch (error) {
         console.error('Create post error:', error);
@@ -258,17 +289,23 @@ router.put('/:id', protect, [
 
         const { content, mood, hashtags, images, videos, kidSafe } = req.body;
 
-        if (content !== undefined) post.content = content;
-        if (mood) post.mood = mood;
-        if (hashtags) post.hashtags = hashtags.map(tag => tag.toLowerCase().trim());
-        if (images) post.images = images;
-        if (videos) post.videos = videos;
-        if (kidSafe !== undefined) post.kidSafe = kidSafe;
 
-        await post.save();
+        const updateData = {};
+        if (content !== undefined) updateData.content = content;
+        if (mood) updateData.mood = mood;
+        if (hashtags) updateData.hashtags = hashtags.map(tag => tag.toLowerCase().trim());
+        if (images) updateData.images = images;
+        if (videos) updateData.videos = videos;
+        if (kidSafe !== undefined) updateData.kidSafe = kidSafe;
 
-        const updatedPost = await Post.findById(post._id)
-            .populate('author', 'username avatar followers');
+        const updatedPost = await Post.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true, runValidators: true }
+        ).populate('author', 'username avatar bio').lean();
+
+        // Bust cache
+        await cacheClear('feed:*');
 
         res.json(updatedPost);
     } catch (error) {
@@ -347,8 +384,12 @@ router.delete('/:id', protect, async (req, res) => {
 
         // Delete from MongoDB
         await post.deleteOne();
+        
+        // Bust cache
+        await cacheClear('feed:*');
+        publisher.publish(CHANNELS.POST_DELETED, JSON.stringify({ postId: req.params.id }));
 
-        res.json({ message: 'Post and media deleted successfully' });
+        res.json({ message: 'Post removed' });
     } catch (error) {
         console.error('Delete post error:', error);
         res.status(500).json({ message: 'Server error deleting post' });

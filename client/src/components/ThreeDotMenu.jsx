@@ -1,7 +1,7 @@
 import { Save, EyeOff, Flag, Edit, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
-const ThreeDotMenu = ({ isOwnPost, onSave, onHide, onReport, onEdit, onDelete, onClose }) => {
+const ThreeDotMenu = ({ isOwnPost, isSaved, onSave, onHide, onReport, onEdit, onDelete, onClose }) => {
     const menuRef = useRef(null);
 
     useEffect(() => {
@@ -43,8 +43,8 @@ const ThreeDotMenu = ({ isOwnPost, onSave, onHide, onReport, onEdit, onDelete, o
                         onClick={() => { onSave(); onClose(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                        <Save className="w-4 h-4" />
-                        <span>Save Post</span>
+                        <Save className={`w-4 h-4 ${isSaved ? 'fill-current text-blue-600' : ''}`} />
+                        <span className={isSaved ? 'text-blue-600 font-medium' : ''}>{isSaved ? 'Unsave Post' : 'Save Post'}</span>
                     </button>
                     <button
                         onClick={() => { onHide(); onClose(); }}

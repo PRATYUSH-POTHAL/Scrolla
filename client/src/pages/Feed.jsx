@@ -1,18 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MessageSquare, Bell, Home, Search, Map, Bookmark, User, CheckCircle, Moon, Sun } from 'lucide-react';
+import { Bell, Home, Search, Map, Bookmark, User, CheckCircle, Moon, Sun } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import PostCard from '../components/PostCard';
 import SkeletonPostCard from '../components/SkeletonPostCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BrandLogo from '../components/BrandLogo';
-import { postService } from '../services/postService';
 import { userService } from '../services/userService';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useMoodFilter } from '../context/MoodFilterContext';
 import { useSessionTimer } from '../hooks/useSessionTimer';
+import { usePosts } from '../hooks/usePosts';
 import { AlarmClockIcon } from '../components/AlarmClockIcon';
 import { TimeUpModal } from '../components/TimeUpModal';
 import MoodFeedBanner from '../components/MoodFeedBanner';
@@ -50,12 +50,47 @@ const Feed = () => {
     );
 
     const { activeMood: selectedMood, setMoodFilter: setSelectedMood } = useMoodFilter();
-    const [posts, setPosts] = useState([]);
-    const [communityPosts, setCommunityPosts] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [journeyComplete, setJourneyComplete] = useState(false);
     const [activeTab, setActiveTab] = useState('foryou');
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+    const filters = useMemo(() => {
+        const f = {};
+        if (selectedMood !== 'all') f.mood = selectedMood;
+        if (kidsMode) f.kidSafe = 'true';
+        if (activeTab === 'following') f.following = 'true';
+        return f;
+    }, [selectedMood, kidsMode, activeTab]);
+
+    const { 
+        data, 
+        fetchNextPage, 
+        hasNextPage, 
+        isFetchingNextPage, 
+        isLoading: loading,
+        refetch
+    } = usePosts(filters);
+
+    const posts = data?.pages.flatMap(page => page.posts) || [];
+    
+    // Infinite Scroll Observer
+    const observerTarget = useRef(null);
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                }
+            },
+            { threshold: 0.1 }
+        );
+        
+        if (observerTarget.current) {
+            observer.observe(observerTarget.current);
+        }
+        
+        return () => observer.disconnect();
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const WelcomeCard = () => (
         <div style={{background:'var(--defi-surface)', border:'1px solid rgba(255, 255, 255, 0.08)', borderRadius:'14px', padding:'24px', marginBottom:'24px', textAlign:'center'}}>
@@ -114,10 +149,6 @@ const Feed = () => {
         fetchUnreadCount();
     }, []);
 
-    useEffect(() => {
-        fetchPosts();
-    }, [selectedMood, kidsMode, activeTab]);
-
     // Sync session timer with AppContext
     useEffect(() => {
         if (sessionActive && sessionDuration > 0) {
@@ -158,84 +189,15 @@ const Feed = () => {
         } catch { /* silent */ }
     };
 
-    const fetchPosts = async () => {
-        try {
-            setLoading(true);
-            const filters = {};
 
-            if (selectedMood !== 'all') {
-                filters.mood = selectedMood;
-            }
-
-            if (kidsMode) {
-                filters.kidSafe = 'true';
-            }
-
-            filters.limit = 50;
-            
-            let currentFollowingIds = followingIds;
-            if (user?._id && followingIds.size === 0) {
-                try {
-                    const following = await userService.getFollowing(user._id);
-                    currentFollowingIds = new Set(following.map(u => u._id));
-                    setFollowingIds(currentFollowingIds);
-                } catch (err) {
-                    console.error('Error fetching following list:', err);
-                }
-            }
-
-            let mainPosts = [];
-            let extraPosts = [];
-
-            if (activeTab === 'foryou') {
-                if (currentFollowingIds.size === 0) {
-                    const data = await postService.getPosts(filters);
-                    extraPosts = data.posts || [];
-                } else {
-                    const data = await postService.getPosts({ ...filters, following: 'true' });
-                    mainPosts = data.posts || [];
-
-                    if (mainPosts.length < 5) {
-                        const allData = await postService.getPosts(filters);
-                        extraPosts = allData.posts || [];
-                    }
-                }
-            } else if (activeTab === 'following') {
-                const data = await postService.getPosts({ ...filters, following: 'true' });
-                mainPosts = data.posts || [];
-            } else {
-                const data = await postService.getPosts(filters);
-                mainPosts = data.posts || [];
-            }
-
-            mainPosts = mainPosts.filter(p => p.author?._id !== user?._id);
-            extraPosts = extraPosts.filter(p => 
-                p.author?._id !== user?._id && 
-                !mainPosts.some(fp => fp._id === p._id) &&
-                !currentFollowingIds.has(p.author?._id)
-            );
-
-            setPosts(mainPosts);
-            setCommunityPosts(extraPosts);
-        } catch (error) {
-            console.error('Error fetching posts:', error);
-            setPosts([]);
-            setCommunityPosts([]);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleFollowUser = async (userId) => {
         try {
             await userService.followUser(userId);
             setFollowingIds(prev => new Set([...prev, userId]));
-            // Remove from suggested
             setSuggestedUsers(prev => prev.filter(u => u._id !== userId));
-            // Refresh feed if on foryou tab
-            if (activeTab === 'foryou' || activeTab === 'following') {
-                fetchPosts();
-            }
+            // Let the query cache update or refetch
+            refetch();
         } catch (err) {
             console.error('Error following user:', err);
         }
@@ -485,8 +447,8 @@ const Feed = () => {
                                         <motion.div key={post._id} variants={itemVariants}>
                                             <PostCard 
                                                 post={post} 
-                                                onUpdate={fetchPosts} 
-                                                onDelete={fetchPosts} 
+                                                onUpdate={refetch} 
+                                                onDelete={refetch} 
                                                 isFollowing={followingIds.has(post.author?._id)}
                                                 onFollowToggle={(isFollowing, userId) => {
                                                     if (isFollowing) {
@@ -497,16 +459,13 @@ const Feed = () => {
                                                         newSet.delete(userId);
                                                         setFollowingIds(newSet);
                                                     }
-                                                    if (activeTab === 'foryou' || activeTab === 'following') {
-                                                        fetchPosts();
-                                                    }
                                                 }}
                                             />
                                         </motion.div>
                                     ))}
 
                                     {/* Empty state if absolutely no posts to show */}
-                                    {posts.length === 0 && communityPosts.length === 0 && followingIds.size > 0 && (
+                                    {posts.length === 0 && followingIds.size > 0 && (
                                         <div style={{background:'var(--defi-surface)', border:'1px solid rgba(255, 255, 255, 0.08)', borderRadius:'14px', textAlign:'center', padding:'48px 16px'}}>
                                             <p style={{color:'var(--defi-muted)', marginBottom:'16px'}}>
                                                 {activeTab === 'foryou' || activeTab === 'following'
@@ -529,52 +488,10 @@ const Feed = () => {
                                         </div>
                                     )}
 
-                                    {/* Community Filler Posts */}
-                                    {communityPosts.length > 0 && activeTab === 'foryou' && (
-                                        <>
-                                            {posts.length > 0 && (
-                                                <div style={{
-                                                    textAlign: 'center', 
-                                                    margin: '32px 0 24px', 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '16px',
-                                                    color: 'var(--defi-muted)',
-                                                    fontSize: '0.9rem',
-                                                    fontWeight: '600',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.05em'
-                                                }}>
-                                                    <div style={{flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)'}} />
-                                                    More from the community
-                                                    <div style={{flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)'}} />
-                                                </div>
-                                            )}
-                                            {communityPosts.map((post) => (
-                                                <motion.div key={post._id} variants={itemVariants}>
-                                                    <PostCard 
-                                                        post={post} 
-                                                        onUpdate={fetchPosts} 
-                                                        onDelete={fetchPosts} 
-                                                        isFollowing={followingIds.has(post.author?._id)}
-                                                        onFollowToggle={(isFollowing, userId) => {
-                                                            if (isFollowing) {
-                                                                setFollowingIds(prev => new Set([...prev, userId]));
-                                                                setSuggestedUsers(prev => prev.filter(u => u._id !== userId));
-                                                            } else {
-                                                                const newSet = new Set(followingIds);
-                                                                newSet.delete(userId);
-                                                                setFollowingIds(newSet);
-                                                            }
-                                                            if (activeTab === 'foryou' || activeTab === 'following') {
-                                                                fetchPosts();
-                                                            }
-                                                        }}
-                                                    />
-                                                </motion.div>
-                                            ))}
-                                        </>
-                                    )}
+                                    {/* Sentinel div for Infinite Scroll */}
+                                    <div ref={observerTarget} style={{ height: '20px', margin: '20px 0' }}>
+                                        {isFetchingNextPage && <div style={{ textAlign: 'center' }}><LoadingSpinner size="sm" /></div>}
+                                    </div>
                                 </>
                             )}
                         </motion.div>
