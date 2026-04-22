@@ -538,6 +538,56 @@
   justify-content: center;
 }
 
+/* Custom Google Button (useGoogleLogin hook) */
+.auth-google-btn {
+  width: 100%;
+  padding: 14px 16px;
+  height: 48px;
+  border-radius: 10px;
+  border: 2px solid rgba(247, 147, 26, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--auth-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+}
+
+.auth-google-btn:hover:not(:disabled) {
+  border-color: var(--auth-orange-primary);
+  background: rgba(247, 147, 26, 0.12);
+  box-shadow: 0 0 16px rgba(247, 147, 26, 0.2);
+  transform: translateY(-1px);
+}
+
+.auth-google-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.auth-google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .auth-google-btn {
+  background: rgba(247, 147, 26, 0.08);
+  border-color: rgba(247, 147, 26, 0.25);
+  color: #1A1A1A;
+}
+
+[data-theme="light"] .auth-google-btn:hover:not(:disabled) {
+  background: rgba(247, 147, 26, 0.15);
+  border-color: var(--auth-orange-primary);
+  box-shadow: 0 0 16px rgba(247, 147, 26, 0.15);
+}
+
 /* Google OAuth Login - Enhanced Styling */
 .auth-google-login {
   width: 100%;

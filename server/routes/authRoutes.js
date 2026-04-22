@@ -215,6 +215,100 @@ router.post('/google', authLimiter, async (req, res) => {
     }
 });
 
+// @route   POST /api/auth/google-access-token
+// @desc    Google OAuth via access_token (from useGoogleLogin hook — avoids popup blocker)
+// @access  Public
+router.post('/google-access-token', authLimiter, async (req, res) => {
+    try {
+        const { accessToken } = req.body;
+
+        if (!accessToken) {
+            return res.status(400).json({ message: 'Access token is required' });
+        }
+
+        // Securely fetch user info from Google using the access token
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        
+        if (!userInfoRes.ok) {
+            return res.status(401).json({ message: 'Invalid Google access token' });
+        }
+        
+        const userInfo = await userInfoRes.json();
+        const { sub: googleId, email, name, picture } = userInfo;
+
+        if (!googleId || !email) {
+            return res.status(400).json({ message: 'Invalid Google user info' });
+        }
+
+        // Check if user exists with this googleId (already linked)
+        let user = await User.findOne({ googleId });
+
+        if (user) {
+            const jwtToken = generateToken(user._id);
+            return res.json({
+                status: 'success',
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+                avatar: user.avatar,
+                bio: user.bio,
+                kidsMode: user.kidsMode,
+                token: jwtToken
+            });
+        }
+
+        // Check if email exists (potential account linking)
+        user = await User.findOne({ email });
+        if (user) {
+            return res.status(200).json({
+                status: 'pending_link',
+                message: 'Account found. Confirm to link Google account.',
+                existingUser: {
+                    _id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    avatar: user.avatar,
+                    createdAt: user.createdAt
+                },
+                googleData: { googleId, name, picture, email }
+            });
+        }
+
+        // New user — create account
+        let username = name
+            .toLowerCase()
+            .replace(/\s+/g, '.')
+            .replace(/[^\w.-]/g, '');
+
+        const usernameExists = await User.findOne({ username });
+        if (usernameExists) username = `${username}.${Date.now()}`;
+
+        user = await User.create({
+            username,
+            email,
+            googleId,
+            avatar: picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        });
+
+        const jwtToken = generateToken(user._id);
+        res.json({
+            status: 'success',
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            avatar: user.avatar,
+            bio: user.bio,
+            kidsMode: user.kidsMode,
+            token: jwtToken
+        });
+    } catch (error) {
+        console.error('Google access-token auth error:', error);
+        res.status(500).json({ message: 'Server error during Google authentication' });
+    }
+});
+
 // @route   POST /api/auth/google/confirm-link
 // @desc    Confirm linking existing account with Google
 // @access  Public
@@ -226,14 +320,24 @@ router.post('/google/confirm-link', authLimiter, async (req, res) => {
             return res.status(400).json({ message: 'Missing userId or token' });
         }
 
-        // Verify Google token
-        const verification = await verifyGoogleToken(token);
-
-        if (!verification.success) {
-            return res.status(401).json({ message: verification.error });
+        // Verify Google token (access token)
+        let googleId, picture;
+        try {
+            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const userInfo = await userInfoRes.json();
+            
+            if (!userInfo.sub) {
+                return res.status(401).json({ message: 'Invalid Google token' });
+            }
+            
+            googleId = userInfo.sub;
+            picture = userInfo.picture;
+        } catch (error) {
+            console.error('Error verifying access token:', error);
+            return res.status(401).json({ message: 'Failed to verify Google token' });
         }
-
-        const { googleId, picture } = verification.data;
 
         // First, get the user to check avatar
         const existingUser = await User.findById(userId);

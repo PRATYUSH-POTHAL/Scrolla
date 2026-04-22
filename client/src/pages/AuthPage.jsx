@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { Sun, Moon } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import BrandLogo from '../components/BrandLogo';
@@ -164,50 +164,6 @@ const AuthPage = () => {
         }
     };
 
-    // OAuth Handler
-    const handleGoogleSuccess = async (credentialResponse) => {
-        setLoading(true);
-        setError('');
-        try {
-            const token = credentialResponse.credential;
-            
-            // Send token to backend
-            const res = await api.post('/auth/google', {
-                token
-            });
-
-            // Check if account linking confirmation needed
-            if (res.data.status === 'pending_link') {
-                // Show confirmation modal
-                setPendingLink({
-                    googleToken: token,
-                    existingUser: res.data.existingUser,
-                    googleData: res.data.googleData
-                });
-                toast('Found existing account! Confirm to link.', {
-                    icon: '🔗'
-                });
-                return;
-            }
-
-            // Direct login/new account
-            if (res.data.status === 'success' || res.data.token) {
-                // setUser (from AuthContext's updateUser) persists to both state + localStorage
-                setUser(res.data);
-
-                toast.success('Login successful!');
-                promptMoodLogger();
-            }
-        } catch (error) {
-            console.error('Google login error:', error);
-            const errorMessage = error.response?.data?.message || 'Google login failed';
-            setError(errorMessage);
-            toast.error(errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     // Confirm account linking
     const handleConfirmLink = async () => {
         if (!pendingLink) return;
@@ -244,8 +200,47 @@ const AuthPage = () => {
     };
 
     const handleGoogleError = () => {
-        toast.error('Google login failed');
+        toast.error('Google login failed. Please try again.');
     };
+
+    // useGoogleLogin avoids the GSI popup blocker by opening a proper browser window
+    const googleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            setLoading(true);
+            setError('');
+            try {
+                // Send access_token to backend — backend will securely fetch user info from Google
+                const res = await api.post('/auth/google-access-token', {
+                    accessToken: tokenResponse.access_token
+                });
+
+                if (res.data.status === 'pending_link') {
+                    setPendingLink({
+                        googleToken: tokenResponse.access_token,
+                        existingUser: res.data.existingUser,
+                        googleData: res.data.googleData
+                    });
+                    toast('Found existing account! Confirm to link.', { icon: '🔗' });
+                    return;
+                }
+
+                if (res.data.status === 'success' || res.data.token) {
+                    setUser(res.data);
+                    toast.success('Login successful!');
+                    promptMoodLogger();
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                const errorMessage = error.response?.data?.message || 'Google login failed';
+                setError(errorMessage);
+                toast.error(errorMessage);
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: handleGoogleError,
+        flow: 'implicit',
+    });
 
     return (
         <div className="auth-page-wrapper">
@@ -356,13 +351,15 @@ const AuthPage = () => {
                                 <div className="auth-divider">or</div>
 
                                 <div className="auth-google-login">
-                                    <GoogleLogin
-                                        onSuccess={handleGoogleSuccess}
-                                        onError={handleGoogleError}
-                                        text="signin_with"
-                                        logo_alignment="center"
-                                        width="100%"
-                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => googleLogin()}
+                                        disabled={loading}
+                                        className="auth-google-btn"
+                                    >
+                                        <FcGoogle size={20} />
+                                        Sign in with Google
+                                    </button>
                                 </div>
 
                                 <div className="auth-form-footer">
@@ -438,13 +435,15 @@ const AuthPage = () => {
                                 <div className="auth-divider">or</div>
 
                                 <div className="auth-google-login">
-                                    <GoogleLogin
-                                        onSuccess={handleGoogleSuccess}
-                                        onError={handleGoogleError}
-                                        text="signup_with"
-                                        logo_alignment="center"
-                                        width="100%"
-                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => googleLogin()}
+                                        disabled={loading}
+                                        className="auth-google-btn"
+                                    >
+                                        <FcGoogle size={20} />
+                                        Sign up with Google
+                                    </button>
                                 </div>
 
                                 <div className="auth-form-footer">
