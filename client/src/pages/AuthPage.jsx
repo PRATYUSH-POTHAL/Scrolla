@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { Sun, Moon } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import BrandLogo from '../components/BrandLogo';
@@ -77,11 +77,56 @@ const AuthPage = () => {
         navigate('/feed');
     };
 
-    // Update state if URL changes
+    // Update state if URL changes and handle redirect tokens
     useEffect(() => {
         setIsLogin(location.pathname === '/login');
         setError('');
-    }, [location.pathname]);
+
+        // Handle tokens returned from Google Redirect flow
+        const urlParams = new URLSearchParams(location.search);
+        const token = urlParams.get('token');
+        const errParam = urlParams.get('error');
+        const pendingLinkParam = urlParams.get('pending_link');
+
+        if (token) {
+            setLoading(true);
+            api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => {
+                    setUser({ ...res.data, token });
+                    toast.success('Login successful!');
+                    promptMoodLogger();
+                    window.history.replaceState({}, document.title, location.pathname);
+                })
+                .catch(err => {
+                    console.error(err);
+                    setError('Failed to load profile after login');
+                })
+                .finally(() => setLoading(false));
+        } else if (pendingLinkParam) {
+            const tempToken = urlParams.get('tempToken');
+            const existingUserStr = urlParams.get('existingUser');
+            if (tempToken && existingUserStr) {
+                try {
+                    const existingUser = JSON.parse(decodeURIComponent(existingUserStr));
+                    const googleData = JSON.parse(atob(tempToken));
+                    setPendingLink({
+                        googleToken: tempToken, // We will send tempToken back to confirm link
+                        existingUser,
+                        googleData
+                    });
+                    toast('Found existing account! Confirm to link.', { icon: '🔗' });
+                    window.history.replaceState({}, document.title, location.pathname);
+                } catch (e) {
+                    console.error("Failed to parse link data", e);
+                }
+            }
+        } else if (errParam) {
+            const decodedErr = errParam.replace(/\+/g, ' ');
+            setError(decodedErr);
+            toast.error(decodedErr);
+            window.history.replaceState({}, document.title, location.pathname);
+        }
+    }, [location.pathname, location.search]);
 
     const handleTabSwitch = (toLogin) => {
         if (toLogin !== isLogin) {
@@ -203,45 +248,6 @@ const AuthPage = () => {
         toast.error('Google login failed. Please try again.');
     };
 
-    // useGoogleLogin avoids the GSI popup blocker by opening a proper browser window
-    const googleLogin = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-            setLoading(true);
-            setError('');
-            try {
-                // Send access_token to backend — backend will securely fetch user info from Google
-                const res = await api.post('/auth/google-access-token', {
-                    accessToken: tokenResponse.access_token
-                });
-
-                if (res.data.status === 'pending_link') {
-                    setPendingLink({
-                        googleToken: tokenResponse.access_token,
-                        existingUser: res.data.existingUser,
-                        googleData: res.data.googleData
-                    });
-                    toast('Found existing account! Confirm to link.', { icon: '🔗' });
-                    return;
-                }
-
-                if (res.data.status === 'success' || res.data.token) {
-                    setUser(res.data);
-                    toast.success('Login successful!');
-                    promptMoodLogger();
-                }
-            } catch (error) {
-                console.error('Google login error:', error);
-                const errorMessage = error.response?.data?.message || 'Google login failed';
-                setError(errorMessage);
-                toast.error(errorMessage);
-            } finally {
-                setLoading(false);
-            }
-        },
-        onError: handleGoogleError,
-        flow: 'implicit',
-    });
-
     return (
         <div className="auth-page-wrapper">
             <div className="auth-page">
@@ -351,15 +357,13 @@ const AuthPage = () => {
                                 <div className="auth-divider">or</div>
 
                                 <div className="auth-google-login">
-                                    <button
-                                        type="button"
-                                        onClick={() => googleLogin()}
-                                        disabled={loading}
-                                        className="auth-google-btn"
-                                    >
-                                        <FcGoogle size={20} />
-                                        Sign in with Google
-                                    </button>
+                                    <GoogleLogin
+                                        ux_mode="redirect"
+                                        login_uri={`${import.meta.env.VITE_API_URL}/auth/google/callback`}
+                                        text="signin_with"
+                                        logo_alignment="center"
+                                        width="100%"
+                                    />
                                 </div>
 
                                 <div className="auth-form-footer">
@@ -435,15 +439,13 @@ const AuthPage = () => {
                                 <div className="auth-divider">or</div>
 
                                 <div className="auth-google-login">
-                                    <button
-                                        type="button"
-                                        onClick={() => googleLogin()}
-                                        disabled={loading}
-                                        className="auth-google-btn"
-                                    >
-                                        <FcGoogle size={20} />
-                                        Sign up with Google
-                                    </button>
+                                    <GoogleLogin
+                                        ux_mode="redirect"
+                                        login_uri={`${import.meta.env.VITE_API_URL}/auth/google/callback`}
+                                        text="signup_with"
+                                        logo_alignment="center"
+                                        width="100%"
+                                    />
                                 </div>
 
                                 <div className="auth-form-footer">
