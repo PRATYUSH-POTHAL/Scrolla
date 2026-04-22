@@ -357,24 +357,28 @@ const AuthPage = () => {
 
                                 <form onSubmit={handleLoginSubmit}>
                                     <div className="auth-field">
-                                        <label>Email</label>
+                                        <label htmlFor="login-email">Email</label>
                                         <input
+                                            id="login-email"
                                             type="email"
                                             name="email"
                                             placeholder="you@example.com"
                                             value={loginData.email}
                                             onChange={handleLoginChange}
+                                            autoComplete="email"
                                             required
                                         />
                                     </div>
                                     <div className="auth-field">
-                                        <label>Password</label>
+                                        <label htmlFor="login-password">Password</label>
                                         <input
+                                            id="login-password"
                                             type="password"
                                             name="password"
                                             placeholder="••••••••"
                                             value={loginData.password}
                                             onChange={handleLoginChange}
+                                            autoComplete="current-password"
                                             required
                                         />
                                     </div>
@@ -411,13 +415,15 @@ const AuthPage = () => {
 
                                 <form onSubmit={handleRegisterSubmit}>
                                     <div className="auth-field">
-                                        <label>Username</label>
+                                        <label htmlFor="reg-username">Username</label>
                                         <input
+                                            id="reg-username"
                                             type="text"
                                             name="username"
                                             placeholder="cool.user"
                                             value={registerData.username}
                                             onChange={handleRegisterChange}
+                                            autoComplete="username"
                                             required
                                             minLength={3}
                                             maxLength={30}
@@ -425,38 +431,44 @@ const AuthPage = () => {
                                     </div>
 
                                     <div className="auth-field">
-                                        <label>Email</label>
+                                        <label htmlFor="reg-email">Email</label>
                                         <input
+                                            id="reg-email"
                                             type="email"
                                             name="email"
                                             placeholder="you@example.com"
                                             value={registerData.email}
                                             onChange={handleRegisterChange}
+                                            autoComplete="email"
                                             required
                                         />
                                     </div>
 
                                     <div className="auth-field-row">
                                         <div className="auth-field">
-                                            <label>Password</label>
+                                            <label htmlFor="reg-password">Password</label>
                                             <input
+                                                id="reg-password"
                                                 type="password"
                                                 name="password"
                                                 placeholder="Min 6 chars"
                                                 value={registerData.password}
                                                 onChange={handleRegisterChange}
+                                                autoComplete="new-password"
                                                 required
                                                 minLength={6}
                                             />
                                         </div>
                                         <div className="auth-field">
-                                            <label>Confirm</label>
+                                            <label htmlFor="reg-confirm">Confirm</label>
                                             <input
+                                                id="reg-confirm"
                                                 type="password"
                                                 name="confirmPassword"
                                                 placeholder="Confirm"
                                                 value={registerData.confirmPassword}
                                                 onChange={handleRegisterChange}
+                                                autoComplete="new-password"
                                                 required
                                             />
                                         </div>
