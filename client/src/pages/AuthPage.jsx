@@ -83,6 +83,28 @@ const AuthPage = () => {
         setError('');
     }, [location.pathname]);
 
+    // Handle Google redirect callback — reads access_token from URL hash or params
+    useEffect(() => {
+        const hash = window.location.hash;
+        const search = window.location.search;
+        let accessToken = null;
+
+        if (hash && hash.includes('access_token=')) {
+            const params = new URLSearchParams(hash.replace('#', ''));
+            accessToken = params.get('access_token');
+        } else if (search && search.includes('access_token=')) {
+            const params = new URLSearchParams(search);
+            accessToken = params.get('access_token');
+        }
+
+        if (accessToken) {
+            // Clean URL immediately so it doesn't look messy
+            window.history.replaceState(null, '', window.location.pathname);
+            handleGoogleSuccess({ credential: accessToken });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const handleTabSwitch = (toLogin) => {
         if (toLogin !== isLogin) {
             navigate(toLogin ? '/login' : '/register');
@@ -251,7 +273,9 @@ const AuthPage = () => {
         onSuccess: (tokenResponse) => {
             handleGoogleSuccess({ credential: tokenResponse.access_token });
         },
-        onError: handleGoogleError
+        onError: handleGoogleError,
+        ux_mode: 'redirect',
+        redirect_uri: `${window.location.origin}/login`,
     });
 
     return (
