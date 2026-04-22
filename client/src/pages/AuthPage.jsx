@@ -77,56 +77,11 @@ const AuthPage = () => {
         navigate('/feed');
     };
 
-    // Update state if URL changes and handle redirect tokens
+    // Update state if URL changes
     useEffect(() => {
         setIsLogin(location.pathname === '/login');
         setError('');
-
-        // Handle tokens returned from Google Redirect flow
-        const urlParams = new URLSearchParams(location.search);
-        const token = urlParams.get('token');
-        const errParam = urlParams.get('error');
-        const pendingLinkParam = urlParams.get('pending_link');
-
-        if (token) {
-            setLoading(true);
-            api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-                .then(res => {
-                    setUser({ ...res.data, token });
-                    toast.success('Login successful!');
-                    promptMoodLogger();
-                    window.history.replaceState({}, document.title, location.pathname);
-                })
-                .catch(err => {
-                    console.error(err);
-                    setError('Failed to load profile after login');
-                })
-                .finally(() => setLoading(false));
-        } else if (pendingLinkParam) {
-            const tempToken = urlParams.get('tempToken');
-            const existingUserStr = urlParams.get('existingUser');
-            if (tempToken && existingUserStr) {
-                try {
-                    const existingUser = JSON.parse(decodeURIComponent(existingUserStr));
-                    const googleData = JSON.parse(atob(tempToken));
-                    setPendingLink({
-                        googleToken: tempToken, // We will send tempToken back to confirm link
-                        existingUser,
-                        googleData
-                    });
-                    toast('Found existing account! Confirm to link.', { icon: '🔗' });
-                    window.history.replaceState({}, document.title, location.pathname);
-                } catch (e) {
-                    console.error("Failed to parse link data", e);
-                }
-            }
-        } else if (errParam) {
-            const decodedErr = errParam.replace(/\+/g, ' ');
-            setError(decodedErr);
-            toast.error(decodedErr);
-            window.history.replaceState({}, document.title, location.pathname);
-        }
-    }, [location.pathname, location.search]);
+    }, [location.pathname]);
 
     const handleTabSwitch = (toLogin) => {
         if (toLogin !== isLogin) {
@@ -209,6 +164,50 @@ const AuthPage = () => {
         }
     };
 
+    // OAuth Handler
+    const handleGoogleSuccess = async (credentialResponse) => {
+        setLoading(true);
+        setError('');
+        try {
+            const token = credentialResponse.credential;
+            
+            // Send token to backend
+            const res = await api.post('/auth/google', {
+                token
+            });
+
+            // Check if account linking confirmation needed
+            if (res.data.status === 'pending_link') {
+                // Show confirmation modal
+                setPendingLink({
+                    googleToken: token,
+                    existingUser: res.data.existingUser,
+                    googleData: res.data.googleData
+                });
+                toast('Found existing account! Confirm to link.', {
+                    icon: '🔗'
+                });
+                return;
+            }
+
+            // Direct login/new account
+            if (res.data.status === 'success' || res.data.token) {
+                // setUser (from AuthContext's updateUser) persists to both state + localStorage
+                setUser(res.data);
+
+                toast.success('Login successful!');
+                promptMoodLogger();
+            }
+        } catch (error) {
+            console.error('Google login error:', error);
+            const errorMessage = error.response?.data?.message || 'Google login failed';
+            setError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Confirm account linking
     const handleConfirmLink = async () => {
         if (!pendingLink) return;
@@ -245,7 +244,7 @@ const AuthPage = () => {
     };
 
     const handleGoogleError = () => {
-        toast.error('Google login failed. Please try again.');
+        toast.error('Google login failed');
     };
 
     return (
@@ -358,8 +357,8 @@ const AuthPage = () => {
 
                                 <div className="auth-google-login">
                                     <GoogleLogin
-                                        ux_mode="redirect"
-                                        login_uri={`${import.meta.env.VITE_API_URL}/auth/google/callback`}
+                                        onSuccess={handleGoogleSuccess}
+                                        onError={handleGoogleError}
                                         text="signin_with"
                                         logo_alignment="center"
                                         width="100%"
@@ -440,8 +439,8 @@ const AuthPage = () => {
 
                                 <div className="auth-google-login">
                                     <GoogleLogin
-                                        ux_mode="redirect"
-                                        login_uri={`${import.meta.env.VITE_API_URL}/auth/google/callback`}
+                                        onSuccess={handleGoogleSuccess}
+                                        onError={handleGoogleError}
                                         text="signup_with"
                                         logo_alignment="center"
                                         width="100%"
