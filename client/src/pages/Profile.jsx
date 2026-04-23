@@ -46,6 +46,15 @@ const Profile = () => {
     const [showMenu, setShowMenu] = useState(false);
     const modalRef = useRef(null);
 
+    // Followers/Following modal state
+    const [showFollowModal, setShowFollowModal] = useState(false);
+    const [followModalTab, setFollowModalTab] = useState('followers'); // 'followers' | 'following'
+    const [followersList, setFollowersList] = useState([]);
+    const [followingList, setFollowingList] = useState([]);
+    const [followModalLoading, setFollowModalLoading] = useState(false);
+    const [followActionLoading, setFollowActionLoading] = useState({});
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
     const isOwnProfile = String(currentUser?._id) === String(id);
 
     // Sync tab from URL param when navigating (e.g. ?tab=saved)
@@ -79,13 +88,14 @@ const Profile = () => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [expandedPost, currentPostIndex]);
+    }, [expandedPost, currentPostIndex, currentMediaIndex]);
 
     // Modal Navigation Functions
     const openPostModal = (post) => {
         const index = posts.findIndex(p => p._id === post._id);
         setCurrentPostIndex(index);
         setExpandedPost(post);
+        setCurrentMediaIndex(0);
         setLiked(post.isLiked || false);
         setCommentText('');
         document.body.style.overflow = 'hidden'; // Prevent background scroll
@@ -99,22 +109,15 @@ const Profile = () => {
     };
 
     const navigateToNext = () => {
-        if (currentPostIndex !== null && currentPostIndex < posts.length - 1) {
-            const nextPost = posts[currentPostIndex + 1];
-            setExpandedPost(nextPost);
-            setCurrentPostIndex(currentPostIndex + 1);
-            setLiked(nextPost.isLiked || false);
-            setCommentText('');
+        const totalMedia = (expandedPost?.videos?.length || 0) + (expandedPost?.images?.length || 0);
+        if (totalMedia > 1 && currentMediaIndex < totalMedia - 1) {
+            setCurrentMediaIndex(prev => prev + 1);
         }
     };
 
     const navigateToPrevious = () => {
-        if (currentPostIndex !== null && currentPostIndex > 0) {
-            const prevPost = posts[currentPostIndex - 1];
-            setExpandedPost(prevPost);
-            setCurrentPostIndex(currentPostIndex - 1);
-            setLiked(prevPost.isLiked || false);
-            setCommentText('');
+        if (currentMediaIndex > 0) {
+            setCurrentMediaIndex(prev => prev - 1);
         }
     };
 
@@ -221,6 +224,59 @@ const Profile = () => {
                 followerCount: prevFollowerCount
             });
             alert('Failed to update follow status');
+        }
+    };
+
+    // ── Followers/Following Modal Functions ──
+    const openFollowModal = async (tab) => {
+        setFollowModalTab(tab);
+        setShowFollowModal(true);
+        setFollowModalLoading(true);
+        document.body.style.overflow = 'hidden';
+        try {
+            const [followers, following] = await Promise.all([
+                userService.getFollowers(id),
+                userService.getFollowing(id)
+            ]);
+            setFollowersList(followers || []);
+            setFollowingList(following || []);
+        } catch (err) {
+            console.error('Error fetching follow lists:', err);
+        } finally {
+            setFollowModalLoading(false);
+        }
+    };
+
+    const closeFollowModal = () => {
+        setShowFollowModal(false);
+        document.body.style.overflow = 'auto';
+    };
+
+    const handleFollowFromModal = async (userId) => {
+        setFollowActionLoading(prev => ({ ...prev, [userId]: true }));
+        try {
+            await userService.followUser(userId);
+            // Update the following list to reflect the change
+            const updatedUser = followersList.find(u => u._id === userId) || followingList.find(u => u._id === userId);
+            if (updatedUser) {
+                setFollowingList(prev => [...prev, updatedUser]);
+            }
+        } catch (err) {
+            console.error('Error following user:', err);
+        } finally {
+            setFollowActionLoading(prev => ({ ...prev, [userId]: false }));
+        }
+    };
+
+    const handleUnfollowFromModal = async (userId) => {
+        setFollowActionLoading(prev => ({ ...prev, [userId]: true }));
+        try {
+            await userService.unfollowUser(userId);
+            setFollowingList(prev => prev.filter(u => u._id !== userId));
+        } catch (err) {
+            console.error('Error unfollowing user:', err);
+        } finally {
+            setFollowActionLoading(prev => ({ ...prev, [userId]: false }));
         }
     };
 
@@ -536,11 +592,11 @@ const Profile = () => {
                                 <div className="prof-stat-value">{posts.length}</div>
                                 <div className="prof-stat-label">POSTS</div>
                             </div>
-                            <div className="prof-stat">
+                            <div className="prof-stat prof-stat-clickable" onClick={() => openFollowModal('followers')}>
                                 <div className="prof-stat-value">{profile.followerCount || 0}</div>
                                 <div className="prof-stat-label">FOLLOWERS</div>
                             </div>
-                            <div className="prof-stat">
+                            <div className="prof-stat prof-stat-clickable" onClick={() => openFollowModal('following')}>
                                 <div className="prof-stat-value">{profile.followingCount || 0}</div>
                                 <div className="prof-stat-label">FOLLOWING</div>
                             </div>
@@ -711,34 +767,34 @@ const Profile = () => {
 
                         {/* Left Section - Media */}
                         <div className="prof-modal-media-section">
-                            {expandedPost.videos && expandedPost.videos.length > 0 ? (
-                                <video 
-                                    src={typeof expandedPost.videos[0] === 'object' ? expandedPost.videos[0].url : expandedPost.videos[0]} 
-                                    className="prof-modal-media"
-                                    controls
-                                    autoPlay
-                                    muted
-                                />
-                            ) : expandedPost.images && expandedPost.images.length > 0 ? (
-                                <img 
-                                    src={typeof expandedPost.images[0] === 'object' ? expandedPost.images[0].url : expandedPost.images[0]}
-                                    alt="Post"
-                                    className="prof-modal-media"
-                                />
-                            ) : (
-                                <img 
-                                    src={expandedPost.image || '/placeholder.jpg'}
-                                    alt="Post"
-                                    className="prof-modal-media"
-                                />
-                            )}
+                            {(() => {
+                                const allMedia = [
+                                    ...(expandedPost.images || []).map(i => ({ type: 'image', src: typeof i === 'object' ? i.url : i })),
+                                    ...(expandedPost.videos || []).map(v => ({ type: 'video', src: typeof v === 'object' ? v.url : v }))
+                                ];
+                                if (allMedia.length === 0) {
+                                    return <img src={expandedPost.image || '/placeholder.jpg'} alt="Post" className="prof-modal-media" />;
+                                }
+                                const media = allMedia[currentMediaIndex] || allMedia[0];
+                                return media.type === 'video' ? (
+                                    <video src={media.src} className="prof-modal-media" controls autoPlay muted />
+                                ) : (
+                                    <img src={media.src} alt="Post" className="prof-modal-media" />
+                                );
+                            })()}
                             
                             {/* Post Counter - Below Media */}
-                            {currentPostIndex !== null && (
-                                <div className="prof-media-counter">
-                                    {currentPostIndex + 1} / {posts.length}
-                                </div>
-                            )}
+                            {(() => {
+                                const totalMedia = (expandedPost.images?.length || 0) + (expandedPost.videos?.length || 0);
+                                if (totalMedia > 1) {
+                                    return (
+                                        <div className="prof-media-counter">
+                                            {currentMediaIndex + 1} / {totalMedia}
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
 
                         {/* Right Section - Caption, Likes, Comments */}
@@ -893,26 +949,32 @@ const Profile = () => {
                         </div>
 
                         {/* Navigation Arrows */}
-                        {currentPostIndex !== null && (
-                            <>
-                                <button 
-                                    className="prof-nav-arrow prof-nav-prev"
-                                    onClick={navigateToPrevious}
-                                    disabled={currentPostIndex === 0}
-                                    title="Previous (← arrow key)"
-                                >
-                                    <ChevronLeft size={32} />
-                                </button>
-                                <button 
-                                    className="prof-nav-arrow prof-nav-next"
-                                    onClick={navigateToNext}
-                                    disabled={currentPostIndex === posts.length - 1}
-                                    title="Next (→ arrow key)"
-                                >
-                                    <ChevronRight size={32} />
-                                </button>
-                            </>
-                        )}
+                        {(() => {
+                            const totalMedia = (expandedPost.images?.length || 0) + (expandedPost.videos?.length || 0);
+                            if (totalMedia > 1) {
+                                return (
+                                    <>
+                                        <button 
+                                            className="prof-nav-arrow prof-nav-prev"
+                                            onClick={navigateToPrevious}
+                                            disabled={currentMediaIndex === 0}
+                                            title="Previous Media (← arrow key)"
+                                        >
+                                            <ChevronLeft size={32} />
+                                        </button>
+                                        <button 
+                                            className="prof-nav-arrow prof-nav-next"
+                                            onClick={navigateToNext}
+                                            disabled={currentMediaIndex === totalMedia - 1}
+                                            title="Next Media (→ arrow key)"
+                                        >
+                                            <ChevronRight size={32} />
+                                        </button>
+                                    </>
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
                 </>
             )}
@@ -1043,6 +1105,88 @@ const Profile = () => {
                                     Save Changes
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* ═══ FOLLOWERS / FOLLOWING MODAL ═══ */}
+            {showFollowModal && (
+                <>
+                    <div 
+                        className="prof-modal-backdrop-blur"
+                        onClick={closeFollowModal}
+                    ></div>
+                    <div className="prof-follow-modal">
+                        {/* Modal Header with Tabs */}
+                        <div className="prof-follow-modal-header">
+                            <button 
+                                className={`prof-follow-modal-tab ${followModalTab === 'followers' ? 'active' : ''}`}
+                                onClick={() => setFollowModalTab('followers')}
+                            >
+                                Followers
+                                <span className="prof-follow-modal-count">{followersList.length}</span>
+                            </button>
+                            <button 
+                                className={`prof-follow-modal-tab ${followModalTab === 'following' ? 'active' : ''}`}
+                                onClick={() => setFollowModalTab('following')}
+                            >
+                                Following
+                                <span className="prof-follow-modal-count">{followingList.length}</span>
+                            </button>
+                            <button className="prof-follow-modal-close" onClick={closeFollowModal}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* User List */}
+                        <div className="prof-follow-modal-list">
+                            {followModalLoading ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                                    <LoadingSpinner size="sm" />
+                                </div>
+                            ) : (
+                                <>
+                                    {(followModalTab === 'followers' ? followersList : followingList).length === 0 ? (
+                                        <div className="prof-follow-modal-empty">
+                                            {followModalTab === 'followers' 
+                                                ? 'No followers yet' 
+                                                : 'Not following anyone yet'}
+                                        </div>
+                                    ) : (
+                                        (followModalTab === 'followers' ? followersList : followingList).map(person => {
+                                            const isMe = person._id === currentUser?._id;
+                                            const amFollowing = followingList.some(u => u._id === person._id);
+
+                                            return (
+                                                <div key={person._id} className="prof-follow-modal-user">
+                                                    <div 
+                                                        className="prof-follow-modal-user-left"
+                                                        onClick={() => { closeFollowModal(); navigate(`/profile/${person._id}`); }}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div className="prof-follow-modal-avatar">
+                                                            {person.avatar && !person.avatar.includes('dicebear') ? (
+                                                                <img src={person.avatar} alt={person.username} />
+                                                            ) : (
+                                                                <span>{person.username?.charAt(0).toUpperCase()}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="prof-follow-modal-user-info">
+                                                            <span className="prof-follow-modal-username">{person.username}</span>
+                                                            {person.bio && (
+                                                                <span className="prof-follow-modal-bio">
+                                                                    {person.bio.length > 40 ? person.bio.substring(0, 40) + '...' : person.bio}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 </>

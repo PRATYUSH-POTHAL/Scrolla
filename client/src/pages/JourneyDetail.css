@@ -2,6 +2,14 @@
    JourneyDetail.css
    ───────────────────────────────────── */
 
+.jdetail-wrapper {
+    background-color: var(--defi-bg, #030304);
+    color: var(--defi-fg, #FFFFFF);
+    min-height: 100vh;
+    width: 100%;
+}
+
+
 .jdetail-page {
     max-width: 1100px;
     margin: 0 auto;

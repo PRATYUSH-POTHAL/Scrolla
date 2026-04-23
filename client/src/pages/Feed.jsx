@@ -374,7 +374,7 @@ const Feed = () => {
                             }} />
                         )}
                     </Link>
-                    <Link to="#" className="feed-nav-link">
+                    <Link to={`/profile/${user?._id}?tab=saved`} className="feed-nav-link">
                         <Bookmark className="w-[16px] h-[16px]" /> Saved
                     </Link>
                     <Link to={`/profile/${user?._id}`} className="feed-nav-link">
@@ -388,26 +388,20 @@ const Feed = () => {
                     <button 
                         className={`feed-mood-item ${selectedMood === 'all' ? 'active' : ''}`}
                         onClick={() => setSelectedMood('all')}
+                        style={{ '--active-color': 'var(--defi-orange-primary)' }}
                     >
-                        <div className="feed-mood-dot"></div> ✨ All moods
+                        <div className="feed-mood-dot" style={{ background: 'var(--defi-orange-primary)' }}></div> ✨ All moods
                     </button>
                     {MOODS.filter(m => m.id !== 'all').map(mood => (
                         <button 
                             key={mood.id}
                             className={`feed-mood-item ${selectedMood === mood.id ? 'active' : ''}`}
                             onClick={() => setSelectedMood(mood.id)}
+                            style={{ '--active-color': `var(--mood-${mood.id})` }}
                         >
-                            <div className="feed-mood-dot"></div> {mood.emoji} {mood.label}
+                            <div className="feed-mood-dot" style={{ background: `var(--mood-${mood.id})` }}></div> {mood.emoji} {mood.label}
                         </button>
                     ))}
-
-                    <div className="feed-sidebar-divider"></div>
-
-                    <div className="feed-kids-row" onClick={toggleKidsMode}>
-                        <div className={`feed-toggle ${kidsMode ? 'on' : ''}`}></div>
-                        <span style={{fontSize:'14px', color:'var(--feed-muted)'}}>Kids mode</span>
-                    </div>
-
 
                 </aside>
 
@@ -509,6 +503,12 @@ const Feed = () => {
 
                 {/* RIGHT PANEL */}
                 <aside className="feed-right">
+                    {/* ── Kids Mode Toggle ── */}
+                    <div className="feed-kids-row" onClick={toggleKidsMode}>
+                        <div className={`feed-toggle ${kidsMode ? 'on' : ''}`}></div>
+                        <span style={{fontSize:'14px', color:'var(--feed-muted)'}}>Kids mode</span>
+                    </div>
+
                     {/* ── Focus Sessions ── */}
                     <div className="feed-panel-section" style={{ padding: 0, border: 'none', background: 'none' }}>
                         <div className="fs-card">

@@ -3,9 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowLeft, Users, Clock, Lock, Globe, Megaphone, MessageSquare,
-    Plus, Loader, X, Copy, CheckCircle, LogOut, XCircle
+    Plus, Loader, X, Copy, CheckCircle, LogOut, XCircle,
+    Home, Compass, Map, Bookmark, User, Bell, Sun, Moon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import BrandLogo from '../components/BrandLogo';
 import { sharedJourneyService } from '../services/sharedJourneyService';
 import PostCard from '../components/PostCard';
 import toast from 'react-hot-toast';
@@ -134,8 +137,38 @@ function MembersPanel({ journeyId, memberCount }) {
 // ─── Main Page ───
 export default function JourneyDetail() {
     const { id } = useParams();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const { theme, toggleTheme } = useTheme();
+
+    const renderSidebar = () => (
+        <aside className="jd-sidebar">
+            <Link to="/feed" className="jd-sidebar-logo">
+                <BrandLogo size="md" />
+            </Link>
+            <nav className="jd-sidebar-nav">
+                <Link to="/feed" className="jd-sidebar-item"><Home size={22} /><span>Home</span></Link>
+                <Link to="/feed" className="jd-sidebar-item"><Compass size={22} /><span>Explore</span></Link>
+                <Link to="/journeys" className="jd-sidebar-item jd-sidebar-item--active"><Map size={22} /><span>Journeys</span></Link>
+                <Link to={`/profile/${user?._id}?tab=saved`} className="jd-sidebar-item"><Bookmark size={22} /><span>Saved</span></Link>
+                <Link to={`/profile/${user?._id}`} className="jd-sidebar-item"><User size={22} /><span>Profile</span></Link>
+                <Link to="/notifications" className="jd-sidebar-item"><Bell size={22} /><span>Notifications</span></Link>
+            </nav>
+            <div className="jd-sidebar-bottom">
+                <div className="jd-sidebar-kids">
+                    <span>Kids Mode</span>
+                    <div className="jd-kids-toggle"><div className="jd-kids-thumb" /></div>
+                </div>
+                <button className="jd-sidebar-item" onClick={toggleTheme}>
+                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                    <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                </button>
+                <button className="jd-sidebar-logout" onClick={() => { logout(); navigate('/login'); }}>
+                    Logout
+                </button>
+            </div>
+        </aside>
+    );
 
     const [journey, setJourney] = useState(null);
     const [posts, setPosts] = useState([]);
@@ -248,11 +281,16 @@ export default function JourneyDetail() {
     };
 
     if (loading) return (
-        <div className="jdetail-page">
-            <div className="jdetail-loading">
-                <Loader size={28} className="spin" />
-                <p>Loading journey...</p>
-            </div>
+        <div className="jd-wrapper">
+            {renderSidebar()}
+            <main className="jd-main">
+                <div className="jdetail-page">
+                    <div className="jdetail-loading">
+                        <Loader size={28} className="spin" />
+                        <p>Loading journey...</p>
+                    </div>
+                </div>
+            </main>
         </div>
     );
 
@@ -267,19 +305,27 @@ export default function JourneyDetail() {
     // Private journey lock screen for non-members
     if (journey.locked) {
         return (
-            <div className="jdetail-page">
-                <div className="jdetail-locked">
-                    <Lock size={52} style={{ color: '#6B7F6E' }} />
-                    <h2>Private Journey</h2>
-                    <p>This is a private journey. You need an invite code to join.</p>
-                    <Link to="/journeys" className="jd-btn-ghost"><ArrowLeft size={16} /> Back to Journeys</Link>
-                </div>
+            <div className="jd-wrapper">
+                {renderSidebar()}
+                <main className="jd-main">
+                    <div className="jdetail-page">
+                        <div className="jdetail-locked">
+                            <Lock size={52} style={{ color: '#6B7F6E' }} />
+                            <h2>Private Journey</h2>
+                            <p>This is a private journey. You need an invite code to join.</p>
+                            <Link to="/journeys" className="jd-btn-ghost"><ArrowLeft size={16} /> Back to Journeys</Link>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
 
     return (
-        <div className="jdetail-page">
+        <div className="jd-wrapper">
+            {renderSidebar()}
+            <main className="jd-main">
+                <div className="jdetail-page">
             <AnimatePresence>
                 {showInviteModal && journey.inviteCode && (
                     <InviteCodeModal code={journey.inviteCode} onClose={() => setShowInviteModal(false)} />
@@ -413,8 +459,10 @@ export default function JourneyDetail() {
                             </button>
                         </div>
                     )}
-                </aside>
+                    </aside>
+                </div>
             </div>
+            </main>
         </div>
     );
 }

@@ -6,7 +6,9 @@
   font-family: var(--font-body);
   background-color: var(--defi-bg);
   color: var(--defi-fg);
-  min-height: 100vh;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-size: 1rem;
   transition: all var(--transition-base);
 }
