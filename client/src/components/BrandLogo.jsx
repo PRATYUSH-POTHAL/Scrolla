@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
-import logoDark from '../assets/scrolla-logo-dark.png';
-import logoWhite from '../assets/scrolla-logo-white.png';
+import logoForDarkTheme from '../assets/Scrolla-black.png';
+import logoForLightTheme from '../assets/Scrolla-light.png';
 
 const BrandLogo = ({ size = 'md', forceDark = false }) => {
   const { theme } = useTheme();
@@ -18,7 +18,7 @@ const BrandLogo = ({ size = 'md', forceDark = false }) => {
   };
 
   // Select logo based on theme (or force dark if specified)
-  const logoSrc = forceDark || theme === 'dark' ? logoDark : logoWhite;
+  const logoSrc = forceDark || theme === 'dark' ? logoForDarkTheme : logoForLightTheme;
 
   return (
     <img 

@@ -123,25 +123,33 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel, trimStart = 0, t
         }
     };
 
-    const aspectMap = {
-        '16:9': '16/9',
-        '1:1': '1/1',
-        '9:16': '9/16',
-        '4:3': '4/3',
-    };
-
-    // Map aspect ratio → Tailwind aspect-ratio class (clamp 9:16 → 4:5 like Instagram)
-    const ratioClass = {
-        '16:9': 'aspect-video',
-        '1:1': 'aspect-square',
-        '9:16': 'aspect-[4/5]',
-        '4:3': 'aspect-[4/3]',
-        '3:4': 'aspect-[3/4]',
-        '4:5': 'aspect-[4/5]',
-    }[aspectRatio] || 'aspect-video';
-
     return (
-        <div ref={containerRef} className="relative rounded-lg overflow-hidden" style={{ width: '100%', aspectRatio: aspectMap[aspectRatio] || '16/9', background: '#000' }}>
+        <div 
+            ref={containerRef} 
+            className="relative rounded-lg overflow-hidden" 
+            style={{ 
+                width: '100%', 
+                backgroundColor: '#050505',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}
+        >
+            {/* ─── Blurred background layer ─── */}
+            {poster && (
+                <div 
+                    className="absolute inset-0 w-full h-full"
+                    style={{
+                        backgroundImage: `url(${poster})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: 'blur(25px) brightness(0.5)',
+                        transform: 'scale(1.2)',
+                        zIndex: 0
+                    }}
+                />
+            )}
+            
             <video
                 ref={videoRef}
                 src={src}
@@ -152,13 +160,16 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel, trimStart = 0, t
                 preload="metadata"
                 disablePictureInPicture
                 controlsList="nodownload nofullscreen noremoteplayback"
-                className="w-full h-full rounded-lg"
+                className="rounded-lg"
                 style={{
-                    objectFit: 'cover',
-                    display: 'block',
-                    background: '#000',
+                    position: 'relative',
+                    zIndex: 1,
                     width: '100%',
-                    height: '100%'
+                    height: 'auto',
+                    maxHeight: '650px',
+                    objectFit: 'contain',
+                    display: 'block',
+                    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.4)'
                 }}
             />
             <button
@@ -168,7 +179,7 @@ const AutoplayVideo = ({ src, poster, aspectRatio, filterLabel, trimStart = 0, t
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             {filterLabel && (
-                <div className="absolute top-2 left-2">
+                <div className="absolute top-2 left-2 z-10">
                     <span className="bg-black/60 text-white text-xs px-2 py-0.5 rounded">🎨 {filterLabel}</span>
                 </div>
             )}
@@ -237,35 +248,55 @@ const PostCard = ({ post, onUpdate, onDelete, isFollowing: isFollowingProp, onFo
         navigate(`/edit-post/${post._id}`, { state: { post } });
     };
 
-    // ─── Render image with Instagram standard aspect ratio ───
+    // ─── Render image dynamically with Premium Glass Background ───
     const renderImage = (image, index) => {
         const isStructured = typeof image === 'object' && image !== null;
         const url = isStructured ? image.url : image;
         const filter = isStructured ? image.filter : 'none';
-        const width = isStructured ? image.width : null;
-        const height = isStructured ? image.height : null;
         const cssFilter = CSS_FILTERS[filter] || 'none';
 
-        // Smart aspect ratio: use auto-detected or fallback to 4:5 (portrait)
-        const smartRatio = getAspectRatio(width, height);
-        const ratioMap = { '4/5': '4/5', '1/1': '1/1', '1.91/1': '1.91/1' };
-
         return (
-            <div key={index} className="post-image-wrapper">
+            <div 
+                key={index} 
+                className="post-image-wrapper relative" 
+                style={{ 
+                    borderRadius: '12px', 
+                    overflow: 'hidden', 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    width: '100%',
+                    backgroundColor: '#050505'
+                }}
+            >
+                {/* ─── Blurred background layer to fill dead space ─── */}
+                <div 
+                    className="absolute inset-0 w-full h-full"
+                    style={{
+                        backgroundImage: `url(${url})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: 'blur(25px) brightness(0.5)',
+                        transform: 'scale(1.2)', // Prevents faded edges from the blur
+                        zIndex: 0
+                    }}
+                />
+                
+                {/* ─── Actual uncropped image ─── */}
                 <img
                     src={url}
                     alt={`Post image ${index + 1}`}
-                    className="post-img-blurred"
                     loading="lazy"
                     style={{
+                        position: 'relative',
+                        zIndex: 1,
                         width: "100%",
-                        aspectRatio: ratioMap[smartRatio] || smartRatio,
-                        objectFit: "cover",
-                        borderRadius: "12px",
+                        height: "auto",
+                        maxHeight: "650px",
+                        objectFit: "contain",
                         filter: cssFilter !== 'none' ? cssFilter : undefined,
-                        backgroundColor: '#000',
-                        maxHeight: 'none', // REMOVED max-height limit
-                        display: 'block'
+                        display: 'block',
+                        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.4)' // Sharpens the separation between image and background
                     }}
                     onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found'; }}
                     onLoad={(e) => {

@@ -3,7 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MoodFilterProvider } from './context/MoodFilterContext';
-import { Toaster } from 'react-hot-toast';
+
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthPage from './pages/AuthPage';
@@ -23,7 +23,6 @@ function App() {
                 <MoodFilterProvider>
                     <Router>
                     <div className="min-h-screen">
-                        <Toaster position="top-right" />
                         <Navbar />
                         <Routes>
                             {/* Public Routes */}

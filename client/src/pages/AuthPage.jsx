@@ -5,6 +5,7 @@ import { Sun, Moon } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useMoodFilter } from '../context/MoodFilterContext';
 import BrandLogo from '../components/BrandLogo';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -38,6 +39,7 @@ const AuthPage = () => {
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
     const { user, login, register, setUser } = useAuth();
+    const { setMoodFilter } = useMoodFilter();
     
     const [isLogin, setIsLogin] = useState(location.pathname === '/login');
     const [loading, setLoading] = useState(false);
@@ -63,6 +65,16 @@ const AuthPage = () => {
         setSavingMood(true);
         try {
             await api.post('/moods', { mood: selectedMood, timeOfDay, loginSession: true });
+            
+            // Instantly apply feed filter based on selected mood
+            let feedFilter = 'all';
+            if (['anxious', 'angry'].includes(selectedMood)) feedFilter = 'calm';
+            else if (selectedMood === 'sad') feedFilter = 'low';
+            else if (['joyful', 'happy'].includes(selectedMood)) feedFilter = 'entertain';
+            else if (selectedMood === 'energised') feedFilter = 'energetic';
+            else if (selectedMood === 'calm') feedFilter = 'calm';
+
+            setMoodFilter(feedFilter, true);
         } catch (err) {
             console.error(err);
         } finally {

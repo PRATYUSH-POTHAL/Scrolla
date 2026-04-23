@@ -158,7 +158,9 @@ const Profile = () => {
             const userData = await userService.getUser(id);
             console.log('Fetched profile data:', userData);
             setProfile(userData);
-            setIsFollowing(userData.followers?.some(f => f._id === currentUser?._id));
+            
+            // The backend sends a pre-calculated isFollowing boolean if the user is logged in
+            setIsFollowing(userData.isFollowing || false);
         } catch (error) {
             console.error('Error fetching profile:', error);
         } finally {

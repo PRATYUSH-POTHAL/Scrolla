@@ -84,6 +84,9 @@ router.get('/', optionalAuth, async (req, res) => {
             const followingRecords = await Follow.find({ follower: req.user._id }).select('followee');
             const followingIds = followingRecords.map(f => f.followee);
             
+            // Add user's own ID so they can see their own posts in their home feed
+            followingIds.push(req.user._id);
+
             if (followingIds.length > 0) {
                 query.author = { $in: followingIds };
             } else {

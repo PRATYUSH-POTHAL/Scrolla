@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Bell, Home, Search, Map, Bookmark, User, CheckCircle, Moon, Sun } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
@@ -21,6 +21,7 @@ import './Feed.css';
 
 const Feed = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const { 
@@ -51,7 +52,16 @@ const Feed = () => {
 
     const { activeMood: selectedMood, setMoodFilter: setSelectedMood } = useMoodFilter();
     const [journeyComplete, setJourneyComplete] = useState(false);
-    const [activeTab, setActiveTab] = useState('foryou');
+    const [activeTab, setActiveTab] = useState(location.pathname === '/explore' ? 'trending' : 'following');
+
+    // Update tab if URL changes (e.g. clicking Nav links)
+    useEffect(() => {
+        if (location.pathname === '/explore') {
+            setActiveTab('trending');
+        } else if (location.pathname === '/feed') {
+            setActiveTab('following');
+        }
+    }, [location.pathname]);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
     const filters = useMemo(() => {
@@ -335,14 +345,14 @@ const Feed = () => {
                 {/* SIDEBAR */}
                 <aside className="feed-sidebar">
                     <button 
-                        className={`feed-nav-link ${activeTab === 'foryou' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('foryou')}
+                        className={`feed-nav-link ${activeTab === 'following' ? 'active' : ''}`}
+                        onClick={() => { setActiveTab('following'); navigate('/feed'); }}
                     >
                         <Home className="w-[16px] h-[16px]" /> Home
                     </button>
                     <button 
                         className={`feed-nav-link ${activeTab === 'trending' ? 'active' : ''}`}
-                        onClick={handleExploreClick}
+                        onClick={() => { handleExploreClick(); navigate('/explore'); }}
                     >
                         <Search className="w-[16px] h-[16px]" /> Explore
                     </button>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Plus, X, ArrowLeft, Clock, Users, Lock, Globe, Megaphone, MessageSquare, Key, ChevronRight, Loader, Home, Bookmark, User, Bell, PlusSquare, Compass, Sun, Moon } from 'lucide-react';
+import { Map, Plus, X, ArrowLeft, ArrowRight, Clock, Users, Lock, Globe, Megaphone, MessageSquare, Key, ChevronRight, Loader, Home, Bookmark, User, Bell, PlusSquare, Compass, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sharedJourneyService } from '../services/sharedJourneyService';
